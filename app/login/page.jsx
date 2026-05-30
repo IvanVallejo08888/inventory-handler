@@ -6,7 +6,6 @@ import LoginForm from '@/components/LoginForm';
 export const metadata = { title: 'Iniciar Sesión — Área 17' };
 
 export default async function LoginPage() {
-  // Si ya hay sesión activa, redirigir al dashboard
   const sesion = await obtenerSesion();
   if (sesion) redirect('/dashboard');
 
