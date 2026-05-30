@@ -1,0 +1,39 @@
+{
+  "name": "Área 17 — Sistema de Gestión",
+  "short_name": "Área 17",
+  "description": "Sistema de Gestión Empresarial Área 17",
+  "start_url": "/login",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0f0a",
+  "theme_color": "#2dce6b",
+  "lang": "es",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Iniciar sesión",
+      "url": "/login",
+      "description": "Ir a la página de inicio de sesión"
+    },
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Ir al panel principal"
+    }
+  ]
+}

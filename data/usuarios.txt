@@ -1,0 +1,1 @@
+1000|Super Administrador|10800449108|3000000000|O+|superadmin@area17.com|687d860fab23fd0b5e7dae7b4a540d95f77c8fab88c6af63689c6f31a6b3da54|ADMINISTRADOR|true|

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sin conexión — Área 17</title>
+  <style>
+    :root {
+      --primary: #2dce6b;
+      --primary-dark: #1aaa52;
+      --primary-light: #5de68a;
+      --primary-glow: rgba(45,206,107,0.28);
+      --bg-dark: #0a0f0a;
+      --text-primary: #e2f4e8;
+      --text-secondary: #78a87e;
+      --border-color: rgba(45,206,107,0.18);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(45,206,107,0.13) 0%, transparent 70%),
+        var(--bg-dark);
+    }
+    .card {
+      text-align: center;
+      padding: 3rem 2.5rem;
+      background: rgba(17,25,17,0.75);
+      border: 1px solid var(--border-color);
+      border-radius: 1.25rem;
+      max-width: 420px;
+      width: 90%;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    }
+    .icon {
+      font-size: 3.5rem;
+      margin-bottom: 1.25rem;
+      display: block;
+      filter: drop-shadow(0 0 12px rgba(45,206,107,0.5));
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-light);
+      margin-bottom: 0.65rem;
+    }
+    p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-bottom: 1.75rem;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.7rem 2rem;
+      background: linear-gradient(135deg, var(--primary-dark), #128040);
+      color: #fff;
+      border: none;
+      border-radius: 0.6rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 16px var(--primary-glow);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(45,206,107,0.4); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="icon">📡</span>
+    <h1>Sin conexión</h1>
+    <p>No hay conexión a internet. Verifica tu red y vuelve a intentarlo.</p>
+    <button class="btn" onclick="window.location.reload()">Reintentar</button>
+  </div>
+</body>
+</html>
