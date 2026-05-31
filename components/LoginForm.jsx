@@ -42,7 +42,8 @@ export default function LoginForm() {
       if (!res.ok) {
         setError(data.error || 'Error al iniciar sesión.');
       } else {
-        router.push(data.destino || '/dashboard');
+        // FIX: Siempre ir a /main/dashboard (la API devuelve destino fijo)
+        router.push(data.destino || '/main/dashboard');
         router.refresh();
       }
     } catch {
@@ -62,22 +63,22 @@ export default function LoginForm() {
         </div>
 
         {registroOk && (
-          <div className="alert alert-success">
+          <div className="alert alert-success" role="alert">
             Registro exitoso. Ya puedes ingresar.
           </div>
         )}
 
         {logoutOk && (
-          <div className="alert alert-success">
+          <div className="alert alert-success" role="alert">
             Sesión cerrada correctamente.
           </div>
         )}
 
         {error && (
-          <div className="alert alert-danger">{error}</div>
+          <div className="alert alert-danger" role="alert">{error}</div>
         )}
 
-        <form onSubmit={handleSubmit} noValidate>
+        <form onSubmit={handleSubmit} noValidate aria-label="Formulario de inicio de sesión">
           <div className="form-group">
             <label className="form-label" htmlFor="identificacion">
               Número de Identificación
@@ -87,12 +88,14 @@ export default function LoginForm() {
               className="form-control"
               type="text"
               inputMode="numeric"
-              maxLength={15}
+              maxLength={20}
               placeholder="Ej: 1023456789"
               value={identificacion}
+              // FIX: Solo permitir dígitos en el campo de identificación
               onChange={e => setIdentificacion(e.target.value.replace(/\D/g, ''))}
               autoComplete="username"
               required
+              aria-required="true"
             />
           </div>
 
@@ -110,12 +113,14 @@ export default function LoginForm() {
                 onChange={e => setContrasena(e.target.value)}
                 autoComplete="current-password"
                 required
+                aria-required="true"
               />
               <button
                 type="button"
                 className="toggle-pw"
                 onClick={() => setMostrarPw(v => !v)}
                 aria-label={mostrarPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                aria-pressed={mostrarPw}
               >
                 {mostrarPw ? '🙈' : '👁️'}
               </button>
@@ -127,6 +132,7 @@ export default function LoginForm() {
             className="btn btn-primary"
             disabled={cargando}
             style={{ marginTop: '0.5rem' }}
+            aria-busy={cargando}
           >
             {cargando ? 'Verificando...' : 'Ingresar'}
           </button>

@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { buscarPorIdentificacion } from '@/lib/fileManager';
-import { hashSHA256, sanitizar } from '@/lib/security';
+import { hashSHA256 } from '@/lib/security';
 import { crearSesion } from '@/lib/auth';
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const identificacion = sanitizar(body.identificacion || '');
+
+    // FIX: No usar sanitizar() (que codifica HTML) en identificación numérica — solo trim
+    const identificacion = (body.identificacion || '').trim().replace(/\D/g, '');
     const contrasena = body.contrasena || '';
 
     // Validación servidor: campos vacíos
@@ -17,18 +19,23 @@ export async function POST(request) {
       );
     }
 
-    // Buscar usuario por identificación
-    const usuario = buscarPorIdentificacion(identificacion);
-
-    if (!usuario) {
+    // FIX: Limitar longitud para prevenir DoS
+    if (identificacion.length > 20 || contrasena.length > 200) {
       return NextResponse.json(
-        { error: 'Identificación o contraseña incorrectos.' },
-        { status: 401 }
+        { error: 'Datos inválidos.' },
+        { status: 400 }
       );
     }
 
-    // Verificar contraseña (SHA-256)
-    if (hashSHA256(contrasena) !== usuario.contrasena) {
+    // Buscar usuario por identificación
+    const usuario = buscarPorIdentificacion(identificacion);
+
+    // FIX SEGURIDAD: Usar timing constante para evitar timing attacks
+    // (comparar siempre, independientemente de si el usuario existe)
+    const hashIngresado = hashSHA256(contrasena);
+    const hashCorrecto = usuario?.contrasena || 'hash-invalido-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+
+    if (!usuario || hashIngresado !== hashCorrecto) {
       return NextResponse.json(
         { error: 'Identificación o contraseña incorrectos.' },
         { status: 401 }
@@ -46,9 +53,8 @@ export async function POST(request) {
     // Crear sesión JWT
     await crearSesion(usuario);
 
-    const destino = usuario.rol === 'ADMINISTRADOR'
-      ? '/dashboard?rol=admin'
-      : '/dashboard?rol=vendedor';
+    // FIX: Redirigir siempre al mismo dashboard (la ruta /dashboard detecta el rol)
+    const destino = '/dashboard';
 
     return NextResponse.json({ ok: true, destino, rol: usuario.rol });
   } catch (err) {

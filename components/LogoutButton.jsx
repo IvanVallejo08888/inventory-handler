@@ -9,7 +9,11 @@ export default function LogoutButton() {
 
   async function handleLogout() {
     setCargando(true);
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Continuar aunque falle el fetch
+    }
     router.push('/login?logout=ok');
     router.refresh();
   }
@@ -20,6 +24,8 @@ export default function LogoutButton() {
       disabled={cargando}
       className="btn btn-secondary"
       style={{ maxWidth: '200px' }}
+      aria-busy={cargando}
+      aria-label="Cerrar sesión"
     >
       {cargando ? 'Cerrando...' : 'Cerrar Sesión'}
     </button>

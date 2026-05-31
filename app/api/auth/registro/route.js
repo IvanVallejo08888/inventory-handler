@@ -5,19 +5,23 @@ import {
   limpiarCelular,
   esContrasenaValida,
   determinarRol,
-  sanitizar,
+  limpiarEntrada,
+  truncar,
 } from '@/lib/security';
 import { registrarUsuario } from '@/lib/fileManager';
+
+const TIPOS_SANGRE_VALIDOS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 export async function POST(request) {
   try {
     const body = await request.json();
 
-    const nombreCompleto = sanitizar(body.nombreCompleto || '');
-    const identificacion = sanitizar(body.identificacion || '');
+    // FIX: Usar limpiarEntrada (no sanitizar HTML) para datos que se almacenan
+    const nombreCompleto = limpiarEntrada(truncar(body.nombreCompleto || '', 100));
+    const identificacion = (body.identificacion || '').replace(/\D/g, '').slice(0, 20);
     const celularRaw = body.celular || '';
-    const tipoSangre = sanitizar(body.tipoSangre || '');
-    const correo = sanitizar(body.correo || '');
+    const tipoSangre = limpiarEntrada(body.tipoSangre || '');
+    const correo = limpiarEntrada(truncar((body.correo || '').toLowerCase(), 150));
     const contrasena = body.contrasena || '';
     const confirmar = body.confirmar || '';
     const claveEspecial = body.claveEspecial || '';
@@ -53,9 +57,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'La clave especial no es válida.' }, { status: 400 });
     }
 
-    // Tiposmde sangre válidos
-    const tiposSangre = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-    if (!tiposSangre.includes(tipoSangre)) {
+    // 7. Tipo de sangre válido
+    if (!TIPOS_SANGRE_VALIDOS.includes(tipoSangre)) {
       return NextResponse.json({ error: 'Tipo de sangre no válido.' }, { status: 400 });
     }
 
