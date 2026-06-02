@@ -1,8 +1,9 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import PageHeader from '@/components/ui/PageHeader';
-import Alert     from '@/components/ui/Alert';
+import PageHeader    from '@/components/ui/PageHeader';
+import Alert        from '@/components/ui/Alert';
+import ProductModal from '@/components/inventario/ProductModal';
 
 const fmt  = n => Number(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmt2 = n => Number(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -36,6 +37,9 @@ export default function HistorialClient({
   const [confirmCancelar, setConfirmCancelar] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [factura, setFactura]   = useState(null);
+  const [menuCompartir, setMenuCompartir] = useState(false);
+  const [copiado, setCopiado]             = useState(false);
+  const [generandoImg, setGenerandoImg]   = useState(false);
 
   const promedio = ventas.length > 0 ? totalVentas / ventas.length : 0;
   const completadas = ventas.filter(v => v.estado === 'COMPLETADA').length;
@@ -69,6 +73,105 @@ export default function HistorialClient({
 
   function imprimirFactura() { window.print(); }
 
+  function resumenTexto(f) {
+    return [
+      `*FACTURA #${f.codigo} — Área 17*`,
+      `La Mejor Tienda Deportiva`,
+      ``,
+      `📅 Fecha: ${f.fecha}  |  🕐 Hora: ${f.hora}`,
+      `👤 Vendedor: ${f.vendedorNombre}`,
+      `💳 Pago: ${f.tipoPago}`,
+      ``,
+      `💰 *TOTAL: $${fmt2(f.total)}*`,
+      ``,
+      `¡Gracias por su compra!`,
+    ].join('\n');
+  }
+
+  function compartirWhatsApp() {
+    if (!factura) return;
+    const texto = encodeURIComponent(resumenTexto(factura));
+    if (navigator.share) {
+      navigator.share({ title: `Factura ${factura.codigo}`, text: resumenTexto(factura) }).catch(() => {});
+    } else {
+      window.open(`https://wa.me/?text=${texto}`, '_blank');
+    }
+    setMenuCompartir(false);
+  }
+
+  function compartirEmail() {
+    if (!factura) return;
+    const asunto = encodeURIComponent(`Factura Electrónica #${factura.codigo} — Área 17`);
+    const cuerpo = encodeURIComponent(resumenTexto(factura));
+    window.location.href = `mailto:?subject=${asunto}&body=${cuerpo}`;
+    setMenuCompartir(false);
+  }
+
+  function compartirSMS() {
+    if (!factura) return;
+    const body = encodeURIComponent(resumenTexto(factura));
+    window.location.href = `sms:?body=${body}`;
+    setMenuCompartir(false);
+  }
+
+  async function copiarTexto() {
+    if (!factura) return;
+    try {
+      await navigator.clipboard.writeText(resumenTexto(factura));
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch { /* sin permiso de clipboard */ }
+  }
+
+  async function cargarHtml2Canvas() {
+    if (window.html2canvas) return window.html2canvas;
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      s.onload  = () => resolve(window.html2canvas);
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  async function descargarImagen() {
+    if (!factura) return;
+    setGenerandoImg(true);
+    try {
+      const h2c = await cargarHtml2Canvas();
+      const el  = document.getElementById('factura-contenido');
+      if (!el) { window.print(); return; }
+      const canvas = await h2c(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `factura-${factura.codigo}.png`;
+      a.click();
+      setMenuCompartir(false);
+    } catch { window.print(); }
+    finally { setGenerandoImg(false); }
+  }
+
+  async function copiarImagen() {
+    if (!factura) return;
+    setGenerandoImg(true);
+    try {
+      const h2c = await cargarHtml2Canvas();
+      const el  = document.getElementById('factura-contenido');
+      if (!el) return;
+      const canvas = await h2c(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+      canvas.toBlob(async blob => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          setCopiado(true);
+          setTimeout(() => setCopiado(false), 2500);
+          setMenuCompartir(false);
+        } catch { alert('Tu navegador no permite copiar imágenes. Prueba descargar.'); }
+      });
+    } catch { /* error silencioso */ }
+    finally { setGenerandoImg(false); }
+  }
+
   const rvdFiltrados = rvdBuscar.trim()
     ? resumenVendedores.filter(r => r.vendedorNombre.toLowerCase().includes(rvdBuscar.toLowerCase()) || String(r.vendedorId).includes(rvdBuscar))
     : resumenVendedores;
@@ -76,7 +179,7 @@ export default function HistorialClient({
   return (
     <div className="content-area">
       <PageHeader title="📋 Historial de Ventas" subtitle="Consulta, gestión y facturación de ventas registradas">
-        <a href="/ventas" className="btn btn-primary" style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}>➕ Nueva Venta</a>
+        <a href="/main/ventas" className="btn btn-primary" style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}>➕ Nueva Venta</a>
       </PageHeader>
 
       {msg && <Alert tipo={msgTipo} mensaje={msg} onClose={() => setMsg(null)} />}
@@ -84,7 +187,7 @@ export default function HistorialClient({
       {/* Tabs período */}
       <div style={{ display:'flex', gap:10, marginBottom:28, flexWrap:'wrap' }}>
         {PERIODOS.map(([p, lbl]) => (
-          <a key={p} href={`/ventas/historial?periodo=${p}`} style={{
+          <a key={p} href={`/main/ventas/historial?periodo=${p}`} style={{
             padding:'10px 22px', borderRadius:'var(--radius-sm)', border:'1px solid',
             fontWeight:700, fontSize:'0.85rem', textDecoration:'none', letterSpacing:1, transition:'var(--transition)',
             borderColor: periodo === p ? 'var(--primary)' : 'var(--border-color)',
@@ -136,7 +239,7 @@ export default function HistorialClient({
                 <div style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--text-muted)', marginTop:2 }}>Actividad y producción por vendedor · {fechaResumen}</div>
               </div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-                <form method="GET" action="/ventas/historial" style={{ display:'flex', gap:8, alignItems:'center', margin:0 }}>
+                <form method="GET" action="/main/ventas/historial" style={{ display:'flex', gap:8, alignItems:'center', margin:0 }}>
                   <input type="hidden" name="periodo" value={periodo} />
                   <input type="date" name="fecha" defaultValue={fechaResumen} onChange={e => e.target.form.submit()}
                     style={{ background:'var(--bg-input)', border:'1px solid var(--border-color)', color:'var(--text-primary)', borderRadius:10, padding:'8px 11px', fontSize:'0.82rem', minHeight:40 }} />
@@ -280,35 +383,111 @@ export default function HistorialClient({
         </div>
       </div>
 
-      {/* Modal cancelar */}
-      {confirmCancelar && (
-        <div className="confirm-overlay active">
-          <div className="confirm-box">
-            <h4>⚠️ Cancelar Venta</h4>
-            <p>¿Está seguro de cancelar esta venta?</p>
-            <p style={{ fontWeight:700, color:'#ff6b6b' }}>{confirmCancelar.codigo}</p>
-            <p style={{ fontSize:'0.82rem', color:'var(--text-muted)' }}>El stock de los productos será repuesto automáticamente.</p>
-            <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:16 }}>
-              <button className="btn btn-secondary" onClick={() => setConfirmCancelar(null)}>No, volver</button>
-              <button className="btn" style={{ background:'var(--danger)', color:'#fff' }} disabled={cargando} onClick={cancelar}>
-                {cargando ? 'Cancelando…' : 'Sí, cancelar'}
-              </button>
-            </div>
-          </div>
+      {/* Modal cancelar venta */}
+      <ProductModal
+        isOpen={confirmCancelar !== null}
+        onClose={() => setConfirmCancelar(null)}
+        title="Cancelar Venta"
+        maxWidth={420}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setConfirmCancelar(null)}>No, volver</button>
+            <button className="btn" style={{ background:'var(--danger)', color:'#fff' }}
+              disabled={cargando} onClick={cancelar}>
+              {cargando ? 'Cancelando…' : 'Sí, cancelar'}
+            </button>
+          </>
+        }
+      >
+        <div style={{ textAlign:'center', padding:'0.25rem 0' }}>
+          <div style={{ fontSize:'2.5rem', marginBottom:'0.75rem' }}>⚠️</div>
+          <p style={{ fontWeight:700, color:'var(--text-primary)', marginBottom:'0.35rem' }}>
+            ¿Cancelar la venta <span style={{ color:'var(--danger)' }}>{confirmCancelar?.codigo}</span>?
+          </p>
+          <p style={{ color:'var(--text-muted)', fontSize:'0.85rem' }}>
+            El stock de los productos será repuesto automáticamente.
+          </p>
         </div>
-      )}
+      </ProductModal>
+
+      {/* Menú compartir factura */}
+      <ProductModal
+        isOpen={menuCompartir}
+        onClose={() => setMenuCompartir(false)}
+        title="Compartir Factura"
+        maxWidth={360}
+      >
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+          {factura && (
+            <div style={{ background:'var(--bg-input)', borderRadius:'var(--radius-sm)', padding:'0.75rem 1rem', marginBottom:'0.25rem', fontSize:'0.82rem', color:'var(--text-muted)', borderLeft:'3px solid var(--primary)' }}>
+              <span style={{ fontWeight:700, color:'var(--primary)' }}>#{factura.codigo}</span>
+              {' · '}${fmt2(factura.total)}
+              {' · '}{factura.fecha}
+            </div>
+          )}
+
+          {[
+            { icono:'📱', label:'WhatsApp',      desc:'Enviar por WhatsApp',         fn: compartirWhatsApp,  color:'#25d366' },
+            { icono:'✉️', label:'Correo',        desc:'Abrir cliente de correo',      fn: compartirEmail,     color:'#60a5fa' },
+            { icono:'💬', label:'SMS',            desc:'Enviar por mensaje de texto',  fn: compartirSMS,       color:'#a78bfa' },
+          ].map(op => (
+            <button key={op.label} onClick={op.fn} style={{
+              display:'flex', alignItems:'center', gap:'0.85rem',
+              padding:'0.85rem 1rem', borderRadius:'var(--radius-sm)',
+              background:'var(--bg-input)', border:'1px solid var(--border-color)',
+              cursor:'pointer', textAlign:'left', transition:'var(--transition)',
+              color:'var(--text-primary)', width:'100%',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = op.color; e.currentTarget.style.background = `${op.color}12`; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-input)'; }}
+            >
+              <span style={{ fontSize:'1.4rem', flexShrink:0 }}>{op.icono}</span>
+              <div>
+                <div style={{ fontWeight:700, fontSize:'0.88rem', color: op.color }}>{op.label}</div>
+                <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>{op.desc}</div>
+              </div>
+            </button>
+          ))}
+
+          <div style={{ borderTop:'1px solid var(--border-subtle)', margin:'0.25rem 0' }} />
+
+          {[
+            { icono:'📋', label: copiado ? '✓ ¡Copiado!' : 'Copiar texto',   desc:'Copiar resumen al portapapeles', fn: copiarTexto,    color:'#f59e0b' },
+            { icono:'📷', label: generandoImg ? 'Generando…' : 'Copiar imagen', desc:'Capturar factura como imagen',   fn: copiarImagen,   color:'#38bdf8' },
+            { icono:'📥', label: generandoImg ? 'Generando…' : 'Descargar PNG', desc:'Guardar factura como imagen PNG', fn: descargarImagen, color:'#4ade80' },
+          ].map(op => (
+            <button key={op.label} onClick={op.fn} disabled={generandoImg} style={{
+              display:'flex', alignItems:'center', gap:'0.85rem',
+              padding:'0.85rem 1rem', borderRadius:'var(--radius-sm)',
+              background:'var(--bg-input)', border:'1px solid var(--border-color)',
+              cursor: generandoImg ? 'not-allowed' : 'pointer', textAlign:'left', transition:'var(--transition)',
+              color:'var(--text-primary)', width:'100%', opacity: generandoImg ? 0.6 : 1,
+            }}
+              onMouseEnter={e => { if (!generandoImg) { e.currentTarget.style.borderColor = op.color; e.currentTarget.style.background = `${op.color}12`; }}}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-input)'; }}
+            >
+              <span style={{ fontSize:'1.4rem', flexShrink:0 }}>{op.icono}</span>
+              <div>
+                <div style={{ fontWeight:700, fontSize:'0.88rem', color: op.color }}>{op.label}</div>
+                <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>{op.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </ProductModal>
 
       {/* Factura imprimible */}
       {factura && (
         <div style={{ position:'fixed', inset:0, background:'#fff', zIndex:2000, overflowY:'auto', padding:'88px 40px 40px', color:'#111', fontFamily:"'Inter',Arial,sans-serif" }}>
           {/* Barra acciones */}
           <div style={{ position:'fixed', top:0, left:0, right:0, zIndex:2001, display:'flex', gap:10, alignItems:'center', justifyContent:'flex-end', padding:'12px 16px', background:'rgba(10,12,16,.92)', backdropFilter:'blur(12px)', borderBottom:'1px solid rgba(255,255,255,.08)' }}>
-            <button onClick={imprimirFactura} style={{ display:'inline-flex', alignItems:'center', gap:7, border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'#1f2937', color:'#fff' }}>🖨️ Imprimir / PDF</button>
+            <button onClick={imprimirFactura} style={{ display:'inline-flex', alignItems:'center', gap:7, border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'#1f2937', color:'#fff' }}>🖨️ Imprimir</button>
+            <button onClick={() => setMenuCompartir(true)} style={{ display:'inline-flex', alignItems:'center', gap:7, border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'#1f2937', color:'#fff' }}>📤 Compartir</button>
             <button onClick={() => setFactura(null)} style={{ display:'inline-flex', alignItems:'center', gap:7, borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'rgba(239,68,68,.15)', color:'#f87171', border:'1px solid rgba(239,68,68,.35)' }}>✕ Cerrar</button>
           </div>
 
           {/* Contenido factura */}
-          <div>
+          <div id="factura-contenido">
             {/* Header */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', paddingBottom:20, borderBottom:'3px solid #1a8a00', marginBottom:24 }}>
               <div>

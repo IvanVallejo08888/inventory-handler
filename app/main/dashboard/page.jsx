@@ -12,7 +12,7 @@ import {
 } from '@/lib/fileManagerVentas';
 import { listarProductos }   from '@/lib/fileManagerProductos';
 import { totalGastosMes, gastosPorCategoria, listarGastos } from '@/lib/fileManagerGastos';
-import { listarUsuarios }    from '@/lib/fileManager';
+import { leerUsuarios }      from '@/lib/fileManager';
 
 export const metadata = { title: 'Dashboard — Área 17' };
 
@@ -32,9 +32,10 @@ export default async function DashboardPage() {
   const vendedorMes   = vendedorDelMes();
 
   if (admin) {
-    const usuarios     = listarUsuarios();
+    const usuarios     = leerUsuarios();
     const productos    = listarProductos();
-    const stockBajo    = productos.filter(p => p.estado === 'ACTIVO' && p.cantidad <= 5).length;
+    const activos      = productos.filter(p => p.estado === 'ACTIVO');
+    const productosStockBajo = activos.filter(p => p.cantidad <= 5).sort((a, b) => a.cantidad - b.cantidad);
     const ultimasVentas = listarVentas().slice(0, 5);
     const gastosRecientes = listarGastos().slice(0, 5);
     const fotosPorVendedor = {};
@@ -45,8 +46,9 @@ export default async function DashboardPage() {
     const props = {
       sesion,
       totalUsuarios:  usuarios.length,
-      totalProductos: productos.filter(p => p.estado === 'ACTIVO').length,
-      stockBajo,
+      totalProductos: activos.length,
+      stockBajo:      productosStockBajo.length,
+      productosStockBajo,
       ventasHoy:      ventasDeHoy.length,
       cajaHoy,
       ventasSemana:   ventasSem.length,
@@ -73,8 +75,10 @@ export default async function DashboardPage() {
 
   // Vendedor: solo sus propias ventas
   const uid = sesion.id;
+  const todasVentas  = listarVentas();
   const misVentasHoy = ventasDeHoy.filter(v => v.vendedorId === uid);
   const misVentasMes = ventasMes().filter(v => v.vendedorId === uid);
+  const misVentasRecientes = todasVentas.filter(v => v.vendedorId === uid).slice(0, 5);
 
   return (
     <DashboardVendedor
@@ -83,6 +87,8 @@ export default async function DashboardPage() {
       cajaHoy={misVentasHoy.reduce((s, v) => s + v.total, 0)}
       ventasMes={misVentasMes.length}
       ingresosMes={misVentasMes.reduce((s, v) => s + v.total, 0)}
+      ventasRecientes={misVentasRecientes}
+      productoTop={productoTop}
     />
   );
 }

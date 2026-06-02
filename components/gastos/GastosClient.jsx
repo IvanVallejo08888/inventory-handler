@@ -1,8 +1,9 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import PageHeader from '@/components/ui/PageHeader';
-import Alert     from '@/components/ui/Alert';
+import PageHeader    from '@/components/ui/PageHeader';
+import Alert        from '@/components/ui/Alert';
+import ProductModal from '@/components/inventario/ProductModal';
 
 const fmt = v => `$${Number(v || 0).toLocaleString('es-CO', { minimumFractionDigits:0, maximumFractionDigits:0 })}`;
 const HOY = () => new Date().toISOString().slice(0, 10);
@@ -19,33 +20,46 @@ const VACIO = { nombre:'', valor:'', fecha:HOY(), categoria:'SERVICIO', descripc
 export default function GastosClient({ lista, categoriaActual, totalMes, gastosPorCat, esAdmin }) {
   const router    = useRouter();
   const [, start] = useTransition();
-  const [msg, setMsg]         = useState(null);
+
+  const [msg,     setMsg]     = useState(null);
   const [msgTipo, setMsgTipo] = useState('success');
-  const [modalAgregar, setModalAgregar] = useState(false);
-  const [modalEditar,  setModalEditar]  = useState(null);
-  const [confirmId,    setConfirmId]    = useState(null);
-  const [form, setForm] = useState(VACIO);
   const [cargando, setCargando] = useState(false);
+
+  const [modalAgregar, setModalAgregar] = useState(false);
+  const [modalEditar,  setModalEditar]  = useState(false);
+  const [confirmId,    setConfirmId]    = useState(null);
+  const [form,         setForm]         = useState(VACIO);
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   function abrirEditar(g) {
     setForm({ id: g.id, nombre: g.nombre, valor: g.valor, fecha: g.fecha, categoria: g.categoria, descripcion: g.descripcion || '' });
-    setModalEditar(g);
+    setModalEditar(true);
   }
+
+  function cerrarAgregar() { setModalAgregar(false); setForm(VACIO); }
+  function cerrarEditar()  { setModalEditar(false);  setForm(VACIO); }
 
   async function enviar(accion) {
     setCargando(true);
     try {
       const body = accion === 'eliminar' ? { accion, id: confirmId } : { accion, ...form };
-      const res  = await fetch('/api/gastos', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      const res  = await fetch('/api/gastos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
-      if (!res.ok || data.error) { setMsgTipo('error'); setMsg(data.error || 'Error.'); }
-      else {
+      if (!res.ok || data.error) {
+        setMsgTipo('error'); setMsg(data.error || 'Error.');
+      } else {
         setMsgTipo('success');
-        setMsg(accion === 'agregar' ? 'Gasto registrado exitosamente.' : accion === 'editar' ? 'Gasto actualizado.' : 'Gasto eliminado.');
-        setModalAgregar(false); setModalEditar(null); setConfirmId(null);
-        setForm(VACIO);
+        setMsg(
+          accion === 'agregar' ? 'Gasto registrado exitosamente.' :
+          accion === 'editar'  ? 'Gasto actualizado.'             :
+                                 'Gasto eliminado.'
+        );
+        cerrarAgregar(); cerrarEditar(); setConfirmId(null);
         start(() => router.refresh());
       }
     } catch { setMsgTipo('error'); setMsg('Error de conexión.'); }
@@ -66,12 +80,18 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
       {/* Categorías KPI */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'1rem', marginBottom:'1.5rem' }}>
         {CATS.map(c => (
-          <a key={c.key} href={categoriaActual === c.key ? '/gastos' : `/gastos?categoria=${c.key}`}
+          <a key={c.key}
+            href={categoriaActual === c.key ? '/main/gastos' : `/main/gastos?categoria=${c.key}`}
             className={`panel ${categoriaActual === c.key ? 'active' : ''}`}
-            style={{ textDecoration:'none', textAlign:'center', padding:'1.25rem 1rem', cursor:'pointer',
-              borderColor: categoriaActual === c.key ? 'var(--border-glow)' : undefined }}>
+            style={{
+              textDecoration:'none', textAlign:'center', padding:'1.25rem 1rem', cursor:'pointer',
+              borderColor: categoriaActual === c.key ? 'var(--border-glow)' : undefined,
+            }}
+          >
             <div style={{ fontSize:'1.75rem', marginBottom:'0.4rem' }}>{c.icono}</div>
-            <div style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--text-secondary)', marginBottom:'0.25rem', textTransform:'uppercase' }}>{c.label}</div>
+            <div style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--text-secondary)', marginBottom:'0.25rem', textTransform:'uppercase' }}>
+              {c.label}
+            </div>
             <div style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--primary)', fontFamily:"'Rajdhani',sans-serif" }}>
               {fmt(gastosPorCat[c.key] || 0)}
             </div>
@@ -91,13 +111,19 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
       {/* Tabla */}
       <div className="panel">
         <div className="panel-header">
-          <span className="panel-title">Registro de gastos {categoriaActual && `— ${categoriaActual}`}</span>
+          <span className="panel-title">
+            Registro de gastos {categoriaActual && `— ${categoriaActual}`}
+          </span>
           <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{lista.length} registros</span>
         </div>
         <div className="table-responsive">
           <table className="area17-table">
             <thead>
-              <tr><th>Código</th><th>Nombre</th><th>Valor</th><th>Fecha</th><th>Categoría</th>{esAdmin && <th>Acciones</th>}</tr>
+              <tr>
+                <th>Código</th><th>Nombre</th><th>Valor</th>
+                <th>Fecha</th><th>Categoría</th>
+                {esAdmin && <th>Acciones</th>}
+              </tr>
             </thead>
             <tbody>
               {lista.map(g => (
@@ -106,7 +132,11 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
                   <td>{g.nombre}</td>
                   <td style={{ color:'#ef4444', fontWeight:600 }}>{fmt(g.valor)}</td>
                   <td style={{ color:'var(--text-muted)', fontSize:'0.82rem' }}>{g.fecha}</td>
-                  <td><span className={`badge-cat badge-${g.categoria}`}>{g.categoria.replace('_',' ')}</span></td>
+                  <td>
+                    <span className={`badge-cat badge-${g.categoria}`}>
+                      {g.categoria.replace('_', ' ')}
+                    </span>
+                  </td>
                   {esAdmin && (
                     <td>
                       <button className="action-btn" onClick={() => abrirEditar(g)}>✏️</button>
@@ -116,66 +146,78 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
                 </tr>
               ))}
               {!lista.length && (
-                <tr><td colSpan={esAdmin ? 6 : 5} style={{ textAlign:'center', color:'var(--text-muted)', padding:'2rem' }}>
-                  Sin gastos registrados
-                </td></tr>
+                <tr>
+                  <td colSpan={esAdmin ? 6 : 5} style={{ textAlign:'center', color:'var(--text-muted)', padding:'2rem' }}>
+                    Sin gastos registrados
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal Agregar */}
-      {modalAgregar && (
-        <div className="confirm-overlay active" onClick={() => setModalAgregar(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <h3 style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--border-subtle)', margin:0 }}>Registrar gasto</h3>
-            <div style={{ padding:'1.5rem' }}>
-              <FormGasto form={form} set={set} />
-              <div className="btn-row">
-                <button className="btn btn-secondary" onClick={() => setModalAgregar(false)}>Cancelar</button>
-                <button className="btn btn-primary" disabled={cargando} onClick={() => enviar('agregar')}>
-                  {cargando ? 'Guardando...' : 'Registrar'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Modal Registrar Gasto ──────────────────────────────── */}
+      <ProductModal
+        isOpen={modalAgregar}
+        onClose={cerrarAgregar}
+        title="Registrar gasto"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={cerrarAgregar}>Cancelar</button>
+            <button className="btn btn-primary" disabled={cargando} onClick={() => enviar('agregar')}>
+              {cargando ? 'Guardando...' : 'Registrar'}
+            </button>
+          </>
+        }
+      >
+        <FormGasto form={form} set={set} />
+      </ProductModal>
 
-      {/* Modal Editar */}
-      {modalEditar && (
-        <div className="confirm-overlay active" onClick={() => setModalEditar(null)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <h3 style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--border-subtle)', margin:0 }}>Editar gasto</h3>
-            <div style={{ padding:'1.5rem' }}>
-              <FormGasto form={form} set={set} />
-              <div className="btn-row">
-                <button className="btn btn-secondary" onClick={() => setModalEditar(null)}>Cancelar</button>
-                <button className="btn btn-primary" disabled={cargando} onClick={() => enviar('editar')}>
-                  {cargando ? 'Guardando...' : 'Actualizar'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Modal Editar Gasto ─────────────────────────────────── */}
+      <ProductModal
+        isOpen={modalEditar}
+        onClose={cerrarEditar}
+        title="Editar gasto"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={cerrarEditar}>Cancelar</button>
+            <button className="btn btn-primary" disabled={cargando} onClick={() => enviar('editar')}>
+              {cargando ? 'Guardando...' : 'Actualizar'}
+            </button>
+          </>
+        }
+      >
+        <FormGasto form={form} set={set} />
+      </ProductModal>
 
-      {/* Confirm Eliminar */}
-      {confirmId && (
-        <div className="confirm-overlay active">
-          <div className="confirm-box">
-            <h4>¿Eliminar gasto?</h4>
-            <p>Esta acción no se puede deshacer.</p>
-            <div style={{ display:'flex', gap:'0.75rem', justifyContent:'center' }}>
+      {/* ── Confirmar Eliminar ─────────────────────────────────── */}
+      {confirmId !== null && (
+        <ProductModal
+          isOpen
+          onClose={() => setConfirmId(null)}
+          title="Eliminar gasto"
+          maxWidth={400}
+          footer={
+            <>
               <button className="btn btn-secondary" onClick={() => setConfirmId(null)}>Cancelar</button>
               <button className="btn" style={{ background:'var(--danger)', color:'#fff' }}
                 disabled={cargando} onClick={() => enviar('eliminar')}>
                 {cargando ? 'Eliminando...' : 'Eliminar'}
               </button>
-            </div>
+            </>
+          }
+        >
+          <div style={{ textAlign:'center', padding:'0.5rem 0' }}>
+            <div style={{ fontSize:'2.5rem', marginBottom:'0.75rem' }}>🗑️</div>
+            <p style={{ color:'var(--text-primary)', fontWeight:600, marginBottom:'0.4rem' }}>
+              ¿Eliminar este gasto?
+            </p>
+            <p style={{ color:'var(--text-muted)', fontSize:'0.85rem' }}>
+              Esta acción no se puede deshacer.
+            </p>
           </div>
-        </div>
+        </ProductModal>
       )}
     </div>
   );
@@ -187,17 +229,20 @@ function FormGasto({ form, set }) {
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Nombre *</label>
-          <input className="form-control" value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Descripción del gasto" />
+          <input className="form-control" autoFocus value={form.nombre}
+            onChange={e => set('nombre', e.target.value)} placeholder="Descripción del gasto" />
         </div>
         <div className="form-group">
           <label className="form-label">Valor *</label>
-          <input className="form-control" type="number" min="0" step="0.01" value={form.valor} onChange={e => set('valor', e.target.value)} placeholder="0.00" />
+          <input className="form-control" type="number" min="0" step="0.01"
+            value={form.valor} onChange={e => set('valor', e.target.value)} placeholder="0.00" />
         </div>
       </div>
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Fecha *</label>
-          <input className="form-control" type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} />
+          <input className="form-control" type="date"
+            value={form.fecha} onChange={e => set('fecha', e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">Categoría *</label>
@@ -211,7 +256,9 @@ function FormGasto({ form, set }) {
       </div>
       <div className="form-group">
         <label className="form-label">Descripción</label>
-        <textarea className="form-control" rows={2} value={form.descripcion} onChange={e => set('descripcion', e.target.value)} placeholder="Descripción adicional (opcional)" />
+        <textarea className="form-control" rows={2} value={form.descripcion}
+          onChange={e => set('descripcion', e.target.value)}
+          placeholder="Descripción adicional (opcional)" />
       </div>
     </>
   );

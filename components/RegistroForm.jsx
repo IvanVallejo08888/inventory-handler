@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import LogoArea17 from '@/components/ui/LogoArea17';
 
 const TIPOS_SANGRE = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -95,7 +96,7 @@ export default function RegistroForm() {
     <div className="auth-wrapper">
       <div className="auth-card wide">
         <div className="auth-logo-wrap">
-          <div className="auth-logo">A17</div>
+          <LogoArea17 size={90} />
           <h1 className="auth-title">Crear Cuenta</h1>
           <p className="auth-subtitle">Completa todos los campos para registrarte</p>
         </div>
@@ -110,7 +111,7 @@ export default function RegistroForm() {
               id="nombreCompleto"
               className="form-control"
               type="text"
-              placeholder="Ej: Juan Carlos Pérez"
+              placeholder="Luchando los Diaz"
               value={form.nombreCompleto}
               onChange={e => set('nombreCompleto', e.target.value)}
               required
@@ -139,7 +140,7 @@ export default function RegistroForm() {
                 id="celular"
                 className="form-control"
                 type="tel"
-                placeholder="Ej: 300 123 4567"
+                placeholder=" 300 123 4567"
                 value={form.celular}
                 onChange={e => set('celular', e.target.value)}
                 required
@@ -170,7 +171,7 @@ export default function RegistroForm() {
                 id="correo"
                 className="form-control"
                 type="email"
-                placeholder="correo@ejemplo.com"
+                placeholder="correo@gmail.com"
                 value={form.correo}
                 onChange={e => set('correo', e.target.value)}
                 required

@@ -1,8 +1,9 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import PageHeader from '@/components/ui/PageHeader';
-import Alert     from '@/components/ui/Alert';
+import PageHeader    from '@/components/ui/PageHeader';
+import Alert        from '@/components/ui/Alert';
+import ProductModal from '@/components/inventario/ProductModal';
 
 export default function RecomendacionesClient({ lista, esAdmin, sesion, total, buscar, fechaDesde, fechaHasta }) {
   const router    = useRouter();
@@ -81,7 +82,7 @@ export default function RecomendacionesClient({ lista, esAdmin, sesion, total, b
             <input name="fechaHasta" type="date" defaultValue={fechaHasta} style={{ background:'var(--bg-input)', border:'1.5px solid var(--border-color)', borderRadius:'0.6rem', color:'var(--text-primary)', padding:'0.55rem 0.9rem', fontSize:'0.87rem', minHeight:38 }} />
             <button type="submit" className="btn btn-primary" style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}>Filtrar</button>
             {(buscar || fechaDesde || fechaHasta) && (
-              <a href="/recomendaciones" className="btn btn-secondary" style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}>Limpiar</a>
+              <a href="/main/recomendaciones" className="btn btn-secondary" style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}>Limpiar</a>
             )}
           </form>
 
@@ -118,22 +119,38 @@ export default function RecomendacionesClient({ lista, esAdmin, sesion, total, b
         </>
       )}
 
-      {/* Confirm Eliminar */}
-      {confirmId && (
-        <div className="confirm-overlay active">
-          <div className="confirm-box">
-            <h4>¿Eliminar recomendación?</h4>
-            <p>Esta acción no se puede deshacer.</p>
-            <div style={{ display:'flex', gap:'0.75rem', justifyContent:'center' }}>
-              <button className="btn btn-secondary" onClick={() => setConfirmId(null)}>Cancelar</button>
-              <button className="btn" style={{ background:'var(--danger)', color:'#fff' }}
-                disabled={cargando} onClick={eliminar}>
-                {cargando ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
+      {/* ── Modal eliminar recomendación ── */}
+      <ProductModal
+        isOpen={confirmId !== null}
+        onClose={() => setConfirmId(null)}
+        title="Eliminar recomendación"
+        maxWidth={400}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setConfirmId(null)}>
+              Cancelar
+            </button>
+            <button
+              className="btn"
+              style={{ background:'var(--danger)', color:'#fff' }}
+              disabled={cargando}
+              onClick={eliminar}
+            >
+              {cargando ? 'Eliminando...' : 'Sí, eliminar'}
+            </button>
+          </>
+        }
+      >
+        <div style={{ textAlign:'center', padding:'0.5rem 0' }}>
+          <div style={{ fontSize:'2.5rem', marginBottom:'0.75rem' }}>🗑️</div>
+          <p style={{ color:'var(--text-primary)', fontWeight:600, marginBottom:'0.4rem' }}>
+            ¿Deseas eliminar esta recomendación?
+          </p>
+          <p style={{ color:'var(--text-muted)', fontSize:'0.85rem' }}>
+            Esta acción no se puede deshacer.
+          </p>
         </div>
-      )}
+      </ProductModal>
     </div>
   );
 }

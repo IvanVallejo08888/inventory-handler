@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import LogoArea17 from '@/components/ui/LogoArea17';
 
 function getIniciales(nombre) {
   if (!nombre) return 'U';
@@ -123,9 +124,7 @@ export default function Navbar({ sesion }) {
       >
         {/* Brand */}
         <div className="sidebar-brand">
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--primary-glow)', border: '1.5px solid var(--primary-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1rem', color: 'var(--primary-light)', flexShrink: 0 }}>
-            A17
-          </div>
+          <LogoArea17 size={40} />
           <div>
             <span className="brand-text">Área 17</span>
             <span className="brand-sub">Sistema de Gestión</span>

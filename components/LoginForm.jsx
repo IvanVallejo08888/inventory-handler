@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import LogoArea17 from '@/components/ui/LogoArea17';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -43,7 +44,6 @@ export default function LoginForm() {
         setError(data.error || 'Error al iniciar sesión.');
       } else {
         router.push(data.destino || '/dashboard');
-        router.refresh();
       }
     } catch {
       setError('Error de conexión. Intenta de nuevo.');
@@ -56,7 +56,7 @@ export default function LoginForm() {
     <div className="auth-wrapper">
       <div className="auth-card">
         <div className="auth-logo-wrap">
-          <div className="auth-logo">A17</div>
+          <LogoArea17 size={110} />
           <h1 className="auth-title">Área 17</h1>
           <p className="auth-subtitle">Sistema de Gestión Empresarial</p>
         </div>
@@ -88,7 +88,7 @@ export default function LoginForm() {
               type="text"
               inputMode="numeric"
               maxLength={15}
-              placeholder="Ej: 1023456789"
+              placeholder="1023456789"
               value={identificacion}
               onChange={e => setIdentificacion(e.target.value.replace(/\D/g, ''))}
               autoComplete="username"

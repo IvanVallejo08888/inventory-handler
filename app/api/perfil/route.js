@@ -59,7 +59,7 @@ export async function POST(request) {
       fs.writeFileSync(path.join(UPLOADS_DIR, nombreArchivo), Buffer.from(bytes));
 
       // FIX: Usar función centralizada para actualizar usuario
-      const res = actualizarUsuario(sesion.id, { fotoPerfil: nombreArchivo });
+      const res = actualizarUsuario(sesion.identificacion, { fotoPerfil: nombreArchivo });
       if (res.error) return NextResponse.json({ error: res.error }, { status: 404 });
 
       // Renovar sesión con nueva foto
@@ -95,7 +95,7 @@ export async function POST(request) {
         if (existe) return NextResponse.json({ error: 'El correo ya está en uso.' }, { status: 409 });
       }
 
-      const res = actualizarUsuario(sesion.id, {
+      const res = actualizarUsuario(sesion.identificacion, {
         nombreCompleto,
         celular:    celular    || usuario.celular,
         tipoSangre: tipoSangre || usuario.tipoSangre,
@@ -128,7 +128,7 @@ export async function POST(request) {
       if (hashSHA256(nuevaContrasena) === usuario.contrasena)
         return NextResponse.json({ error: 'La nueva contraseña debe ser diferente a la actual.' }, { status: 400 });
 
-      const res = actualizarUsuario(sesion.id, { contrasena: hashSHA256(nuevaContrasena) });
+      const res = actualizarUsuario(sesion.identificacion, { contrasena: hashSHA256(nuevaContrasena) });
       if (res.error) return NextResponse.json(res, { status: 404 });
 
       return NextResponse.json({ ok: true });

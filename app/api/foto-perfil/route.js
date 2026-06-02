@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { obtenerSesion } from '@/lib/auth';
-import { esArchivoSeguro } from '@/lib/security';
 import fs from 'fs';
 import path from 'path';
 
@@ -14,12 +13,11 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const archivo = searchParams.get('archivo');
 
-  // FIX: Usar validación centralizada más estricta
-  if (!archivo || !esArchivoSeguro(archivo)) {
+  if (!archivo) {
     return NextResponse.json({ error: 'Archivo no válido.' }, { status: 400 });
   }
 
-  // FIX: Verificar que el archivo solamente sea de foto de perfil (formato foto_ID.ext)
+  // Verificar que el archivo solamente sea de foto de perfil (formato foto_ID.ext)
   const regexFoto = /^foto_\d+\.(jpg|jpeg|png|webp)$/i;
   if (!regexFoto.test(archivo)) {
     return NextResponse.json({ error: 'Archivo no válido.' }, { status: 400 });

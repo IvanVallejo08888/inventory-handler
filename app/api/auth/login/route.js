@@ -46,9 +46,7 @@ export async function POST(request) {
     // Crear sesión JWT
     await crearSesion(usuario);
 
-    const destino = usuario.rol === 'ADMINISTRADOR'
-      ? '/dashboard?rol=admin'
-      : '/dashboard?rol=vendedor';
+    const destino = '/main/dashboard';
 
     return NextResponse.json({ ok: true, destino, rol: usuario.rol });
   } catch (err) {

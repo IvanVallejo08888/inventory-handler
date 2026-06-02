@@ -1,0 +1,3 @@
+# Area17 - Archivo de recomendaciones
+# Formato: id|fecha|vendedor|contenido|estado
+2|2026-06-02|carlos hurtado|xd|ACTIVA

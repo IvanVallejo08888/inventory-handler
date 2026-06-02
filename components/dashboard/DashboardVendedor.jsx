@@ -11,8 +11,8 @@ function fmt(val) {
   return `${s}$${Math.round(v).toLocaleString('es-CO')}`;
 }
 
-export default function DashboardVendedor({ sesion, ventasHoy, cajaHoy, ventasMes, ingresosMes }) {
-  const [hora, setHora] = useState('');
+export default function DashboardVendedor({ sesion, ventasHoy, cajaHoy, ventasMes, ingresosMes, ventasRecientes, productoTop }) {
+  const [hora, setHora]   = useState('');
   const [fecha, setFecha] = useState('');
 
   useEffect(() => {
@@ -57,10 +57,10 @@ export default function DashboardVendedor({ sesion, ventasHoy, cajaHoy, ventasMe
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'1rem', marginBottom:'1.5rem' }}>
         {[
-          { label:'Ventas hoy',    valor: ventasHoy,       clase:'green',  icono:'🛒' },
-          { label:'Caja hoy',      valor: fmt(cajaHoy),    clase:'green',  icono:'💵' },
-          { label:'Ventas del mes',valor: ventasMes,        clase:'blue',   icono:'📅' },
-          { label:'Ingresos mes',  valor: fmt(ingresosMes), clase:'purple', icono:'📈' },
+          { label:'Ventas hoy',     valor: ventasHoy,        clase:'green',  icono:'🛒' },
+          { label:'Caja hoy',       valor: fmt(cajaHoy),     clase:'green',  icono:'💵' },
+          { label:'Ventas del mes', valor: ventasMes,        clase:'blue',   icono:'📅' },
+          { label:'Ingresos mes',   valor: fmt(ingresosMes), clase:'purple', icono:'📈' },
         ].map(c => (
           <div className="stat-card" key={c.label}>
             <div className={`stat-icon ${c.clase}`}>{c.icono}</div>
@@ -72,16 +72,29 @@ export default function DashboardVendedor({ sesion, ventasHoy, cajaHoy, ventasMe
         ))}
       </div>
 
+      {/* Producto top del mes */}
+      {productoTop && productoTop !== 'N/A' && (
+        <div className="panel" style={{ marginBottom:'1.5rem', background:'rgba(45,206,107,0.04)', borderColor:'rgba(45,206,107,0.25)' }}>
+          <div className="panel-header">
+            <span className="panel-title">⭐ Producto más vendido este mes</span>
+          </div>
+          <div style={{ padding:'0.75rem 1rem', display:'flex', alignItems:'center', gap:'0.75rem' }}>
+            <span style={{ fontSize:'1.5rem' }}>📦</span>
+            <span style={{ fontWeight:700, color:'var(--text-primary)', fontSize:'0.95rem' }}>{productoTop}</span>
+          </div>
+        </div>
+      )}
+
       {/* Acciones rápidas */}
-      <p style={{ fontSize:'14px', fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'14px' }}>
+      <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'0.75rem' }}>
         Acciones rápidas
       </p>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'14px', marginBottom:'28px' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'14px', marginBottom:'1.5rem' }}>
         {[
-          { href:'/ventas',            icono:'🛒', label:'Nueva Venta',          desc:'Registrar productos' },
-          { href:'/ventas/historial',  icono:'📋', label:'Mis Ventas',           desc:'Ver historial' },
-          { href:'/gastos',            icono:'💸', label:'Registrar Gasto',      desc:'Gastos empresariales' },
-          { href:'/recomendaciones',   icono:'💬', label:'Recomendaciones',      desc:'Enviar sugerencias' },
+          { href:'/main/ventas',           icono:'🛒', label:'Nueva Venta',     desc:'Registrar productos' },
+          { href:'/main/ventas/historial',  icono:'📋', label:'Mis Ventas',      desc:'Ver historial' },
+          { href:'/main/gastos',            icono:'💸', label:'Registrar Gasto', desc:'Gastos empresariales' },
+          { href:'/main/recomendaciones',   icono:'💬', label:'Recomendaciones', desc:'Enviar sugerencias' },
         ].map(a => (
           <a key={a.href} href={a.href} style={{
             background:'var(--bg-card)', border:'1px solid var(--border-color)',
@@ -98,6 +111,38 @@ export default function DashboardVendedor({ sesion, ventasHoy, cajaHoy, ventasMe
             <span style={{ fontSize:'12px', color:'var(--text-muted)' }}>{a.desc}</span>
           </a>
         ))}
+      </div>
+
+      {/* Mis ventas recientes */}
+      <div className="panel">
+        <div className="panel-header">
+          <span className="panel-title">📋 Mis ventas recientes</span>
+          <a href="/main/ventas/historial" style={{ fontSize:'0.72rem', color:'var(--primary)' }}>Ver todas →</a>
+        </div>
+        <div className="table-responsive">
+          <table className="area17-table">
+            <thead>
+              <tr><th>Código</th><th>Fecha</th><th>Total</th><th>Pago</th></tr>
+            </thead>
+            <tbody>
+              {(ventasRecientes || []).map(v => (
+                <tr key={v.id}>
+                  <td><span className="codigo-badge">{v.codigo}</span></td>
+                  <td style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{v.fecha} {v.hora}</td>
+                  <td style={{ color:'var(--primary)', fontWeight:600 }}>{fmt(v.total)}</td>
+                  <td style={{ fontSize:'0.75rem', color:'var(--text-secondary)' }}>{v.tipoPago}</td>
+                </tr>
+              ))}
+              {!ventasRecientes?.length && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign:'center', color:'var(--text-muted)', padding:'1.5rem' }}>
+                    Aún no tienes ventas registradas
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

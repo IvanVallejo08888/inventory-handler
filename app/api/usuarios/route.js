@@ -55,8 +55,7 @@ export async function POST(request) {
         contrasena = hashSHA256(body.nuevaContrasena);
       }
 
-      // FIX: Usar función centralizada de fileManager
-      const res = actualizarUsuario(id, {
+      const res = actualizarUsuario(usuario.identificacion, {
         nombreCompleto,
         identificacion: body.identificacion || usuario.identificacion,
         celular:        body.celular        || usuario.celular,
@@ -76,8 +75,12 @@ export async function POST(request) {
       if (id === SUPERADMIN_ID) return NextResponse.json({ error: 'El superadministrador no puede ser eliminado.' }, { status: 403 });
       if (id === sesion.id)     return NextResponse.json({ error: 'No puedes eliminar tu propio usuario.' },          { status: 403 });
 
-      const res = eliminarUsuario(id);
-      if (res.error) return NextResponse.json(res, { status: res.error.includes('encontrado') ? 404 : 400 });
+      const todos   = leerUsuarios();
+      const target  = todos.find(u => u.id === id);
+      if (!target) return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
+
+      const res = eliminarUsuario(target.identificacion);
+      if (res.error) return NextResponse.json(res, { status: 400 });
       return NextResponse.json({ ok: true });
     }
 
