@@ -9,16 +9,21 @@ export default async function GastosPage({ searchParams }) {
   const sesion = await obtenerSesion();
   if (!sesion) redirect('/login');
 
-  const params   = await searchParams;
+  const params    = await searchParams;
   const categoria = params.categoria || '';
-  const lista     = categoria ? filtrarPorCategoria(categoria) : listarGastos();
+
+  const [lista, totalMes, gastosCat] = await Promise.all([
+    categoria ? filtrarPorCategoria(categoria) : listarGastos(),
+    totalGastosMes(),
+    gastosPorCategoria(),
+  ]);
 
   return (
     <GastosClient
       lista={lista}
       categoriaActual={categoria}
-      totalMes={totalGastosMes()}
-      gastosPorCat={gastosPorCategoria()}
+      totalMes={totalMes}
+      gastosPorCat={gastosCat}
       esAdmin={esAdmin(sesion)}
     />
   );

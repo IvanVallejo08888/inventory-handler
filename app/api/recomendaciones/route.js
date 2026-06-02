@@ -12,14 +12,14 @@ export async function POST(request) {
 
     if (accion === 'guardar') {
       if (esAdmin(sesion)) return NextResponse.json({ error: 'Solo vendedores pueden enviar recomendaciones.' }, { status: 403 });
-      const res = agregar({ contenido: body.contenido, vendedor: sesion.nombreCompleto });
+      const res = await agregar({ contenido: body.contenido, vendedor: sesion.nombreCompleto });
       if (res.error) return NextResponse.json(res, { status: 400 });
       return NextResponse.json(res);
     }
 
     if (accion === 'eliminar') {
       if (!esAdmin(sesion)) return NextResponse.json({ error: 'Sin permisos.' }, { status: 403 });
-      const res = eliminar(parseInt(body.id));
+      const res = await eliminar(parseInt(body.id));
       if (res.error) return NextResponse.json(res, { status: 400 });
       return NextResponse.json(res);
     }

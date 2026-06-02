@@ -18,7 +18,7 @@ export async function POST(request) {
     }
 
     // Buscar usuario por identificación
-    const usuario = buscarPorIdentificacion(identificacion);
+    const usuario = await buscarPorIdentificacion(identificacion);
 
     if (!usuario) {
       return NextResponse.json(

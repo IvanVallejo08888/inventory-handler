@@ -9,7 +9,7 @@ export default async function VentasPage() {
   const sesion = await obtenerSesion();
   if (!sesion) redirect('/login');
 
-  const productos = listarProductos().filter(p => p.estado === 'ACTIVO');
+  const productos = (await listarProductos()).filter(p => p.estado === 'ACTIVO');
 
   return <VentasClient productos={productos} sesion={sesion} />;
 }

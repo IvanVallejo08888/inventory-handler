@@ -60,7 +60,7 @@ export async function POST(request) {
     }
 
     // Registrar usuario
-    const resultado = registrarUsuario({
+    const resultado = await registrarUsuario({
       nombreCompleto,
       identificacion,
       celular: limpiarCelular(celularRaw),

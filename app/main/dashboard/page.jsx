@@ -21,63 +21,77 @@ export default async function DashboardPage() {
   if (!sesion) redirect('/login');
   const admin = esAdmin(sesion);
 
-  // ── KPIs comunes ──────────────────────────────────────────────────────────
-  const ventasDeHoy   = ventasHoy();
-  const cajaHoy       = totalDia();
-  const ingresosMes   = ventasMes().reduce((s, v) => s + v.total, 0);
-  const gastosMesVal  = totalGastosMes();
-  const utilidadMes   = ingresosMes - gastosMesVal;
-  const ventasSem     = ventasSemana();
-  const productoTop   = productoMasVendido();
-  const vendedorMes   = vendedorDelMes();
+  const [ventasDeHoy, todasVentas, ventasSem, ventasDeMes,
+         cajaHoy, ingresosMes, gastosMesVal, productoTop, vendedorMes] = await Promise.all([
+    ventasHoy(),
+    listarVentas(),
+    ventasSemana(),
+    ventasMes(),
+    totalDia(),
+    ventasMes().then(v => v.reduce((s, x) => s + x.total, 0)),
+    totalGastosMes(),
+    productoMasVendido(),
+    vendedorDelMes(),
+  ]);
+  const utilidadMes = ingresosMes - gastosMesVal;
 
   if (admin) {
-    const usuarios     = leerUsuarios();
-    const productos    = listarProductos();
-    const activos      = productos.filter(p => p.estado === 'ACTIVO');
+    const [usuarios, productos, gastosRecientes,
+           vpd, t3Vend, t3Prod, gastosCat, efHoy, trHoy, efMes, trMes, ultimasVentas] = await Promise.all([
+      leerUsuarios(),
+      listarProductos(),
+      listarGastos().then(g => g.slice(0, 5)),
+      ventasPorDia(),
+      top3VendedoresMes(),
+      top3ProductosMes(),
+      gastosPorCategoria(),
+      totalEfectivoHoy(),
+      totalTransferenciaHoy(),
+      totalEfectivoMes(),
+      totalTransferenciaMes(),
+      Promise.resolve(todasVentas.slice(0, 5)),
+    ]);
+
+    const activos = productos.filter(p => p.estado === 'ACTIVO');
     const productosStockBajo = activos.filter(p => p.cantidad <= 5).sort((a, b) => a.cantidad - b.cantidad);
-    const ultimasVentas = listarVentas().slice(0, 5);
-    const gastosRecientes = listarGastos().slice(0, 5);
     const fotosPorVendedor = {};
     for (const u of usuarios) {
       if (u.fotoPerfil) fotosPorVendedor[u.id] = u.fotoPerfil;
     }
 
-    const props = {
-      sesion,
-      totalUsuarios:  usuarios.length,
-      totalProductos: activos.length,
-      stockBajo:      productosStockBajo.length,
-      productosStockBajo,
-      ventasHoy:      ventasDeHoy.length,
-      cajaHoy,
-      ventasSemana:   ventasSem.length,
-      ingresosMes,
-      gastosMes:      gastosMesVal,
-      utilidadMes,
-      productoTop,
-      vendedorMes,
-      ventasPorDia:   ventasPorDia(),
-      ultimasVentas,
-      top3Vendedores: top3VendedoresMes(),
-      top3Productos:  top3ProductosMes(),
-      gastosCat:      gastosPorCategoria(),
-      gastosRecientes,
-      fotosPorVendedor,
-      efectivoHoy:         totalEfectivoHoy(),
-      transferenciaHoy:    totalTransferenciaHoy(),
-      efectivoMes:         totalEfectivoMes(),
-      transferenciaMes:    totalTransferenciaMes(),
-    };
-
-    return <DashboardAdmin {...props} />;
+    return (
+      <DashboardAdmin
+        sesion={sesion}
+        totalUsuarios={usuarios.length}
+        totalProductos={activos.length}
+        stockBajo={productosStockBajo.length}
+        productosStockBajo={productosStockBajo}
+        ventasHoy={ventasDeHoy.length}
+        cajaHoy={cajaHoy}
+        ventasSemana={ventasSem.length}
+        ingresosMes={ingresosMes}
+        gastosMes={gastosMesVal}
+        utilidadMes={utilidadMes}
+        productoTop={productoTop}
+        vendedorMes={vendedorMes}
+        ventasPorDia={vpd}
+        ultimasVentas={ultimasVentas}
+        top3Vendedores={t3Vend}
+        top3Productos={t3Prod}
+        gastosCat={gastosCat}
+        gastosRecientes={gastosRecientes}
+        fotosPorVendedor={fotosPorVendedor}
+        efectivoHoy={efHoy}
+        transferenciaHoy={trHoy}
+        efectivoMes={efMes}
+        transferenciaMes={trMes}
+      />
+    );
   }
 
-  // Vendedor: solo sus propias ventas
   const uid = sesion.id;
-  const todasVentas  = listarVentas();
   const misVentasHoy = ventasDeHoy.filter(v => v.vendedorId === uid);
-  const misVentasMes = ventasMes().filter(v => v.vendedorId === uid);
+  const misVentasMes = ventasDeMes.filter(v => v.vendedorId === uid);
   const misVentasRecientes = todasVentas.filter(v => v.vendedorId === uid).slice(0, 5);
 
   return (

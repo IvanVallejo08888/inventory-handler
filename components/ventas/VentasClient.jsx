@@ -39,8 +39,11 @@ export default function VentasClient({ productos, sesion }) {
 
   useEffect(() => { setVisibleCount(VISIBLE_STEP); }, [chipFiltro, buscar]);
 
-  // eslint-disable-next-line no-unused-vars
-  const toast = () => {};
+  const [toastMsg, setToastMsg] = useState(null);
+  function toast(msg, tipo = 'err') {
+    setToastMsg({ msg, tipo });
+    setTimeout(() => setToastMsg(null), 4000);
+  }
 
   // Cálculos
   const keys     = Object.keys(carrito);
@@ -391,6 +394,18 @@ export default function VentasClient({ productos, sesion }) {
       </PageHeader>
 
       {msg && <div className="alert alert-success" style={{ marginBottom:'1rem' }}>{msg}</div>}
+
+      {toastMsg && (
+        <div style={{
+          position:'fixed', bottom:24, right:24, zIndex:9999,
+          padding:'12px 20px', borderRadius:10, fontWeight:600, fontSize:14,
+          background: toastMsg.tipo === 'ok' ? '#166534' : toastMsg.tipo === 'inf' ? '#1e3a5f' : '#7f1d1d',
+          color:'#fff', boxShadow:'0 4px 20px rgba(0,0,0,.4)',
+          border:`1px solid ${toastMsg.tipo === 'ok' ? '#22c55e' : toastMsg.tipo === 'inf' ? '#3b82f6' : '#ef4444'}`,
+        }}>
+          {toastMsg.msg}
+        </div>
+      )}
 
       {/* Layout principal */}
       <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 420px', gap:20, alignItems:'start' }}>

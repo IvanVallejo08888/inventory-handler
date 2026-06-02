@@ -18,11 +18,10 @@ export async function POST(request) {
       const id = parseInt(body.id);
       if (!id) return NextResponse.json({ error: 'ID inválido.' }, { status: 400 });
 
-      const lista = leerUsuarios();
+      const lista  = await leerUsuarios();
       const usuario = lista.find(u => u.id === id);
       if (!usuario) return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
 
-      // FIX: Protección — no puede auto-degradarse ni desactivarse
       let rol    = body.rol    || usuario.rol;
       let activo = body.activo !== undefined ? body.activo === 'true' : usuario.activo;
       if (id === sesion.id) {
@@ -30,7 +29,6 @@ export async function POST(request) {
         activo = true;
       }
 
-      // FIX: Validaciones de campos
       const nombreCompleto = limpiarEntrada(body.nombreCompleto || '');
       if (!nombreCompleto) return NextResponse.json({ error: 'El nombre es obligatorio.' }, { status: 400 });
 
@@ -39,13 +37,11 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Correo inválido.' }, { status: 400 });
       }
 
-      // FIX: Verificar correo duplicado (excluyendo al mismo usuario)
       if (body.correo && body.correo.toLowerCase() !== usuario.correo.toLowerCase()) {
         const correoExiste = lista.find(u => u.id !== id && u.correo.toLowerCase() === correo);
         if (correoExiste) return NextResponse.json({ error: 'El correo ya está en uso.' }, { status: 409 });
       }
 
-      // Contraseña opcional
       let contrasena = usuario.contrasena;
       if (body.nuevaContrasena) {
         if (!esContrasenaValida(body.nuevaContrasena))
@@ -55,7 +51,7 @@ export async function POST(request) {
         contrasena = hashSHA256(body.nuevaContrasena);
       }
 
-      const res = actualizarUsuario(usuario.identificacion, {
+      const res = await actualizarUsuario(usuario.identificacion, {
         nombreCompleto,
         identificacion: body.identificacion || usuario.identificacion,
         celular:        body.celular        || usuario.celular,
@@ -75,11 +71,11 @@ export async function POST(request) {
       if (id === SUPERADMIN_ID) return NextResponse.json({ error: 'El superadministrador no puede ser eliminado.' }, { status: 403 });
       if (id === sesion.id)     return NextResponse.json({ error: 'No puedes eliminar tu propio usuario.' },          { status: 403 });
 
-      const todos   = leerUsuarios();
-      const target  = todos.find(u => u.id === id);
+      const todos  = await leerUsuarios();
+      const target = todos.find(u => u.id === id);
       if (!target) return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
 
-      const res = eliminarUsuario(target.identificacion);
+      const res = await eliminarUsuario(target.identificacion);
       if (res.error) return NextResponse.json(res, { status: 400 });
       return NextResponse.json({ ok: true });
     }

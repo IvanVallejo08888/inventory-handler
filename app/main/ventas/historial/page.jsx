@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { obtenerSesion, esAdmin } from '@/lib/auth';
 import {
-  ventasFiltradas, listarVentas,
+  ventasFiltradas,
   resumenVendedoresDia, totalGeneralVendedoresDia, vendedoresSinVentas,
 } from '@/lib/fileManagerVentas';
 import { leerUsuarios } from '@/lib/fileManager';
@@ -17,7 +17,7 @@ export default async function HistorialPage({ searchParams }) {
   const periodo = params.periodo || 'HOY';
   const admin   = esAdmin(sesion);
 
-  let lista = ventasFiltradas(periodo);
+  let lista = await ventasFiltradas(periodo);
   if (!admin) lista = lista.filter(v => v.vendedorId === sesion.id);
 
   const totalVentas        = lista.reduce((s, v) => s + v.total, 0);
@@ -28,12 +28,17 @@ export default async function HistorialPage({ searchParams }) {
   if (admin) {
     const fecha = params.fecha || '';
     fechaResumen    = fecha || new Date().toISOString().slice(0, 10);
-    resumenVend     = resumenVendedoresDia(fecha);
-    totalGeneralDia = totalGeneralVendedoresDia(fecha);
-    const nombresVend = leerUsuarios()
+    const [resumen, total, usuarios] = await Promise.all([
+      resumenVendedoresDia(fecha),
+      totalGeneralVendedoresDia(fecha),
+      leerUsuarios(),
+    ]);
+    resumenVend     = resumen;
+    totalGeneralDia = total;
+    const nombresVend = usuarios
       .filter(u => u.rol === 'VENDEDOR' && u.activo)
       .map(u => u.nombreCompleto);
-    vendedoresSin = vendedoresSinVentas(fecha, nombresVend);
+    vendedoresSin = await vendedoresSinVentas(fecha, nombresVend);
   }
 
   return (

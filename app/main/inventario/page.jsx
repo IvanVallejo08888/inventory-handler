@@ -26,9 +26,16 @@ export default async function InventarioPage({ searchParams }) {
   const termino = params.buscar || '';
   const estado  = params.estado || 'TODOS';
 
-  const lista = buscar(termino, estado);
+  const [lista, todos, total, activos, unidades, valorInv] = await Promise.all([
+    buscar(termino, estado),
+    listarProductos(),
+    contarProductos(),
+    contarProductosActivos(),
+    totalUnidades(),
+    valorTotalInventario(),
+  ]);
 
-  const stockBajo = listarProductos()
+  const stockBajo = todos
     .filter(p => p.estado === 'ACTIVO' && p.cantidad <= LOW_STOCK_LIMIT)
     .map(p => ({
       id:       p.id,
@@ -45,10 +52,10 @@ export default async function InventarioPage({ searchParams }) {
   return (
     <InventarioClient
       lista={lista}
-      totalProductos={contarProductos()}
-      productosActivos={contarProductosActivos()}
-      totalUnidades={totalUnidades()}
-      valorInventario={valorTotalInventario()}
+      totalProductos={total}
+      productosActivos={activos}
+      totalUnidades={unidades}
+      valorInventario={valorInv}
       buscar={termino}
       filtroEstado={estado}
       stockBajo={stockBajo}

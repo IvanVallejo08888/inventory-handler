@@ -14,7 +14,14 @@ export default async function UsuariosPage({ searchParams }) {
   const buscar    = params.buscar   || '';
   const filtroRol = params.rol      || 'TODOS';
 
-  let lista = leerUsuarios();
+  const [todos, totalUsuarios, totalAdmins, totalVendedores] = await Promise.all([
+    leerUsuarios(),
+    contarUsuarios(),
+    contarAdmins(),
+    contarVendedores(),
+  ]);
+
+  let lista = todos;
   if (buscar.trim()) {
     const t = buscar.trim().toLowerCase();
     lista = lista.filter(u =>
@@ -28,9 +35,9 @@ export default async function UsuariosPage({ searchParams }) {
   return (
     <UsuariosClient
       lista={lista}
-      totalUsuarios={contarUsuarios()}
-      totalAdmins={contarAdmins()}
-      totalVendedores={contarVendedores()}
+      totalUsuarios={totalUsuarios}
+      totalAdmins={totalAdmins}
+      totalVendedores={totalVendedores}
       buscar={buscar}
       filtroRol={filtroRol}
       sesionId={sesion.id}

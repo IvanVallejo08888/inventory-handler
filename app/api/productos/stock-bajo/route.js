@@ -17,7 +17,7 @@ export async function GET() {
   if (!sesion)          return NextResponse.json({ error: 'No autenticado.' },  { status: 401 });
   if (!esAdmin(sesion)) return NextResponse.json({ error: 'Acceso denegado.' }, { status: 403 });
 
-  const productos = listarProductos()
+  const productos = (await listarProductos())
     .filter(p => p.estado === 'ACTIVO' && p.cantidad <= LOW_STOCK_LIMIT)
     .map(p => ({
       id:       p.id,

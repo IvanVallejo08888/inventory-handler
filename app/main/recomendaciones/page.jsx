@@ -12,17 +12,19 @@ export default async function RecomendacionesPage({ searchParams }) {
   const admin  = esAdmin(sesion);
   const params = await searchParams;
 
-  let lista = [];
-  if (admin) {
-    lista = buscar(params.buscar || '', params.fechaDesde || '', params.fechaHasta || '');
-  }
+  const [lista, total] = await Promise.all([
+    admin
+      ? buscar(params.buscar || '', params.fechaDesde || '', params.fechaHasta || '')
+      : Promise.resolve([]),
+    contar(),
+  ]);
 
   return (
     <RecomendacionesClient
       lista={lista}
       esAdmin={admin}
       sesion={sesion}
-      total={contar()}
+      total={total}
       buscar={params.buscar    || ''}
       fechaDesde={params.fechaDesde || ''}
       fechaHasta={params.fechaHasta || ''}
