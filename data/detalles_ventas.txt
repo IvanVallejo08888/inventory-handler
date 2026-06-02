@@ -1,0 +1,8 @@
+# Area17 - detalles_ventas.txt
+# id|ventaId|productoCodigo|productoNombre|cantidad|precioUnitario|descuentoUnidad|subtotal
+1|1|PROD-0001|milo|2|50000|0|100000
+2|2|PROD-0001|milo|2|50000|0|100000
+3|3|PROD-0001|milo|1|50000|0|50000
+4|3|PROD-0002|xd|1|5000|0|5000
+5|4|PROD-0001|milo|1|50000|0|50000
+6|4|PROD-0002|xd|1|5000|0|5000

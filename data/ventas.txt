@@ -1,0 +1,6 @@
+# Area17 - ventas.txt
+# id|codigo|fecha|hora|vendedorId|vendedorNombre|subtotal|descuentoProductos|descuentoTotal|descuentoTipo|total|estado|tipoPago|valorEfectivo|valorTransferencia
+1|VTA-0001|2026-05-31|13:30:59|2002|ivan vallejo|100000|0|0|NINGUNO|100000|COMPLETADA|MIXTO|49999.99|50000.01
+2|VTA-0002|2026-06-01|18:47:21|2002|ivan vallejo|100000|0|10000|FIJO|90000|COMPLETADA|MIXTO|8000|82000
+3|VTA-0003|2026-06-02|19:04:20|2002|ivan vallejo|55000|0|0|NINGUNO|55000|COMPLETADA|EFECTIVO|55000|0
+4|VTA-0004|2026-06-02|20:13:34|2003|carlos hurtado|55000|0|0|NINGUNO|55000|COMPLETADA|EFECTIVO|55000|0
