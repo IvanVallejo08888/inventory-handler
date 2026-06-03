@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
 import { obtenerSesion, crearSesion } from '@/lib/auth';
-import { hashSHA256, esCorreoValido, esArchivoSeguro, limpiarEntrada } from '@/lib/security';
+import { hashSHA256, esCorreoValido, limpiarEntrada } from '@/lib/security';
 import { leerUsuarios, actualizarUsuario } from '@/lib/fileManager';
-import fs from 'fs';
-import path from 'path';
 
-const UPLOADS_DIR     = path.join(process.cwd(), 'public', 'uploads');
 const EXTS_PERMITIDAS = ['jpg', 'jpeg', 'png', 'webp'];
-const MAX_SIZE        = 2 * 1024 * 1024;
+const MAX_SIZE        = 3 * 1024 * 1024; // 3 MB antes de comprimir
 
 export async function POST(request) {
   const sesion = await obtenerSesion();
@@ -15,11 +12,13 @@ export async function POST(request) {
 
   const contentType = request.headers.get('content-type') || '';
 
+  /* ── SUBIR FOTO ──────────────────────────────────────────────────── */
   if (contentType.includes('multipart/form-data')) {
     try {
       const form = await request.formData();
       const foto = form.get('fotoPerfil');
-      if (!foto || !foto.name) return NextResponse.json({ error: 'Debes seleccionar una imagen.' }, { status: 400 });
+      if (!foto || !foto.name)
+        return NextResponse.json({ error: 'Debes seleccionar una imagen.' }, { status: 400 });
 
       const ext = foto.name.split('.').pop().toLowerCase();
       if (!EXTS_PERMITIDAS.includes(ext))
@@ -27,37 +26,43 @@ export async function POST(request) {
 
       const bytes = await foto.arrayBuffer();
       if (bytes.byteLength > MAX_SIZE)
-        return NextResponse.json({ error: 'La imagen no puede superar 2 MB.' }, { status: 400 });
+        return NextResponse.json({ error: 'La imagen no puede superar 3 MB.' }, { status: 400 });
 
+      // Validación de magic bytes (firma real del archivo)
       const header = new Uint8Array(bytes.slice(0, 4));
-      const esImagenValida = (
-        (header[0] === 0xFF && header[1] === 0xD8 && header[2] === 0xFF) ||
-        (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47) ||
-        (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46)
+      const esValida = (
+        (header[0] === 0xFF && header[1] === 0xD8 && header[2] === 0xFF) || // JPEG
+        (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47) || // PNG
+        (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46)    // WEBP (RIFF)
       );
-      if (!esImagenValida)
+      if (!esValida)
         return NextResponse.json({ error: 'El archivo no es una imagen válida.' }, { status: 400 });
 
-      if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      // Convertir a base64 data URL (funciona en localhost y Vercel sin filesystem)
+      const mimeType  = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+                      : ext === 'png'  ? 'image/png'
+                      : 'image/webp';
+      const b64       = Buffer.from(bytes).toString('base64');
+      const dataUrl   = `data:${mimeType};base64,${b64}`;
 
-      const nombreArchivo = `foto_${sesion.id}.${ext}`;
-      for (const extVieja of EXTS_PERMITIDAS) {
-        const rutaVieja = path.join(UPLOADS_DIR, `foto_${sesion.id}.${extVieja}`);
-        if (extVieja !== ext && fs.existsSync(rutaVieja)) fs.unlinkSync(rutaVieja);
-      }
-      fs.writeFileSync(path.join(UPLOADS_DIR, nombreArchivo), Buffer.from(bytes));
+      // Nombre del archivo se sigue guardando en sesión (para construir la URL de la API)
+      const nombreArchivo = `foto_${sesion.id}.${ext === 'jpeg' ? 'jpg' : ext}`;
 
-      const res = await actualizarUsuario(sesion.identificacion, { fotoPerfil: nombreArchivo });
-      if (res.error) return NextResponse.json({ error: res.error }, { status: 404 });
+      // Guardamos el data URL en la DB (columna foto_perfil es TEXT en Neon PostgreSQL)
+      const resDb = await actualizarUsuario(sesion.identificacion, { fotoPerfil: dataUrl });
+      if (resDb.error) return NextResponse.json({ error: resDb.error }, { status: 404 });
 
+      // La sesión guarda el nombre de archivo (no el base64 — el JWT quedaría demasiado grande)
       await crearSesion({ ...sesion, fotoPerfil: nombreArchivo });
       return NextResponse.json({ ok: true, fotoPerfil: nombreArchivo });
+
     } catch (err) {
       console.error('[API perfil foto]', err);
       return NextResponse.json({ error: 'Error al procesar la imagen.' }, { status: 500 });
     }
   }
 
+  /* ── DATOS PERSONALES / CONTRASEÑA ─────────────────────────────── */
   try {
     const body   = await request.json();
     const accion = body.accion;
@@ -118,6 +123,7 @@ export async function POST(request) {
     }
 
     return NextResponse.json({ error: 'Acción no reconocida.' }, { status: 400 });
+
   } catch (err) {
     console.error('[API perfil]', err);
     return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500 });

@@ -43,11 +43,12 @@ export default function LogoArea17({ size = 40, glow = true }) {
       alt="Área 17"
       onError={() => setError(true)}
       style={{
-        width:     size,
-        height:    size,
-        flexShrink: 0,
-        display:   'block',
-        objectFit: 'contain',
+        ...base,
+        objectFit:    'cover',
+        objectPosition: 'center',
+        display:      'block',
+        flexShrink:   0,
+        overflow:     'hidden',
       }}
     />
   );

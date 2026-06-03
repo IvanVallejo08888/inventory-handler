@@ -487,11 +487,11 @@ select.form-control option { background: var(--bg-card); color: var(--text-prima
 }
 .sidebar-brand .brand-logo-img {
   width: 40px; height: 40px;
-  border-radius: 10px;
+  border-radius: 50%;
   object-fit: cover;
-  border: 1.5px solid rgba(45,206,107,0.3);
+  border: 2px solid var(--primary);
   flex-shrink: 0;
-  box-shadow: 0 0 12px rgba(45,206,107,0.2);
+  box-shadow: 0 0 14px var(--primary-glow);
 }
 .sidebar-brand .brand-text {
   display: block;
@@ -522,15 +522,15 @@ select.form-control option { background: var(--bg-card); color: var(--text-prima
 }
 .user-avatar {
   width: 36px; height: 36px;
-  border-radius: 10px;
+  border-radius: 50%;
   background: linear-gradient(135deg, #1a6b40, #0a3d22);
-  border: 1.5px solid rgba(45,206,107,0.2);
+  border: 2px solid var(--primary);
   display: flex; align-items: center; justify-content: center;
   font-size: 0.82rem;
   font-weight: 700;
   color: #c8f0d8;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 0 10px var(--primary-glow), 0 2px 8px rgba(0,0,0,0.3);
 }
 .user-info { flex: 1; min-width: 0; overflow: hidden; }
 .user-info .user-name {
@@ -1139,19 +1139,23 @@ table.area17-table { border-collapse: collapse; width: 100%; min-width: 540px; }
 .usuario-avatar {
   display: inline-flex; align-items: center; justify-content: center;
   width: 36px; height: 36px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--primary-dark), #5b21b6);
-  color: #fff;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-dark), #0a3d22);
+  color: #c8f0d8;
   font-size: 0.82rem; font-weight: 700;
-  border: 1.5px solid rgba(45,206,107,0.2);
+  border: 2px solid var(--primary);
   flex-shrink: 0; vertical-align: middle; margin-right: 0.6rem;
+  box-shadow: 0 0 8px var(--primary-glow);
 }
 .usuario-foto {
   width: 36px; height: 36px;
-  border-radius: 9px;
+  border-radius: 50%;
   object-fit: cover;
-  border: 1.5px solid var(--primary-dark);
+  object-position: center;
+  border: 2px solid var(--primary);
   flex-shrink: 0; vertical-align: middle; margin-right: 0.6rem;
+  box-shadow: 0 0 8px var(--primary-glow);
+  overflow: hidden;
 }
 
 /* Old dashboard-wrapper (legacy page) */

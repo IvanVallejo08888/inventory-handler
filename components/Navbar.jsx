@@ -137,7 +137,16 @@ export default function Navbar({ sesion }) {
             <img
               src={fotoUrl}
               alt={`Foto de ${sesion?.nombreCompleto}`}
-              style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'cover', border: '1.5px solid var(--primary-dark)', flexShrink: 0 }}
+              style={{
+                width: 36, height: 36,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                objectPosition: 'center',
+                border: '2px solid var(--primary)',
+                flexShrink: 0,
+                boxShadow: '0 0 10px var(--primary-glow)',
+                overflow: 'hidden',
+              }}
               onError={e => { e.currentTarget.style.display = 'none'; }}
             />
           ) : (
