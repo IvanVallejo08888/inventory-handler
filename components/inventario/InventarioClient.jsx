@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader    from '@/components/ui/PageHeader';
 import Alert        from '@/components/ui/Alert';
@@ -13,8 +13,21 @@ const TALLAS_ROPA   = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const TALLAS_NINO   = Array.from({ length: 17 }, (_, i) => String(i));
 const TALLAS_ADULTO = Array.from({ length: 19 }, (_, i) => String(i + 24));
 
+const COLORES = [
+  'Blanco', 'Negro', 'Gris', 'Plata',
+  'Rojo', 'Vinotinto',
+  'Azul', 'Azul Marino', 'Celeste', 'Turquesa',
+  'Verde', 'Verde Militar', 'Verde Limón',
+  'Amarillo', 'Naranja',
+  'Morado', 'Lila', 'Fucsia', 'Rosado',
+  'Beige', 'Café', 'Marrón', 'Camel', 'Crema',
+  'Dorado', 'Cobre', 'Coral', 'Mostaza', 'Salmón', 'Terracota',
+  'Chocolate', 'Hueso', 'Arena', 'Perla',
+  'Multicolor',
+];
+
 const FORM_EDIT_VACIO    = { nombre:'', precio:'', cantidad:'', estado:'ACTIVO' };
-const FORM_AGREGAR_VACIO = { nombre:'', tipo:'', subTipo:'', precio:'', estado:'ACTIVO', tallas:{} };
+const FORM_AGREGAR_VACIO = { nombre:'', tipo:'', subTipo:'', precio:'', estado:'ACTIVO', tallas:{}, colores:[] };
 
 export default function InventarioClient({
   lista, totalProductos, productosActivos,
@@ -94,9 +107,9 @@ export default function InventarioClient({
     finally  { setCargando(false); }
   }
 
-  // Agregar con tallas — crea un registro por cada talla > 0
+  // Agregar con tallas y colores — genera una variante por cada combinación color×talla
   async function enviarTallas() {
-    const { nombre, tipo, subTipo, precio, estado, tallas } = formAgregar;
+    const { nombre, tipo, subTipo, precio, estado, tallas, colores } = formAgregar;
 
     if (!nombre.trim())                    { setMsgTipo('error'); setMsg('El nombre del producto es obligatorio.'); return; }
     if (!tipo)                             { setMsgTipo('error'); setMsg('Selecciona el tipo de producto.'); return; }
@@ -108,19 +121,43 @@ export default function InventarioClient({
       setMsgTipo('error'); setMsg('Agrega al menos una talla con cantidad mayor a 0.'); return;
     }
 
+    // Construir todas las variantes (color × talla) sin duplicados
+    const nombreBase = nombre.trim().toUpperCase();
+    const seen = new Set();
+    const variantes = [];
+
+    if (colores.length > 0) {
+      for (const color of colores) {
+        for (const [talla, cantidad] of tallasConCantidad) {
+          const nombreFinal = `${nombreBase} COLOR ${color.toUpperCase()} TALLA ${talla}`;
+          if (!seen.has(nombreFinal)) {
+            seen.add(nombreFinal);
+            variantes.push({ nombre: nombreFinal, cantidad });
+          }
+        }
+      }
+    } else {
+      for (const [talla, cantidad] of tallasConCantidad) {
+        const nombreFinal = `${nombreBase} TALLA ${talla}`;
+        if (!seen.has(nombreFinal)) {
+          seen.add(nombreFinal);
+          variantes.push({ nombre: nombreFinal, cantidad });
+        }
+      }
+    }
+
     setCargando(true);
     try {
       let exitosos = 0;
       const errores = [];
-      for (const [talla, cantidad] of tallasConCantidad) {
-        const nombreFinal = `${nombre.trim().toUpperCase()} TALLA ${talla}`;
+      for (const variante of variantes) {
         const res  = await fetch('/api/productos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accion:'agregar', nombre:nombreFinal, precio:parseFloat(precio), cantidad, estado }),
+          body: JSON.stringify({ accion:'agregar', nombre: variante.nombre, precio:parseFloat(precio), cantidad: variante.cantidad, estado }),
         });
         const data = await res.json();
-        if (!res.ok || data.error) errores.push(`${talla}: ${data.error}`);
+        if (!res.ok || data.error) errores.push(`${variante.nombre}: ${data.error}`);
         else exitosos++;
       }
       if (exitosos > 0) {
@@ -315,7 +352,7 @@ export default function InventarioClient({
 
 /* ── Formulario de agregar con tallas ──────────────────────────────────── */
 function FormAgregarProducto({ form, setAgregar, setTalla }) {
-  const { nombre, tipo, subTipo, precio, estado, tallas } = form;
+  const { nombre, tipo, subTipo, precio, estado, tallas, colores } = form;
 
   let tallasActuales = [];
   if (tipo === 'ROPA')                             tallasActuales = TALLAS_ROPA;
@@ -324,6 +361,10 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
 
   const totalUds     = Object.values(tallas).reduce((s, c) => s + c, 0);
   const tallasFilled = Object.values(tallas).filter(c => c > 0).length;
+
+  // Cuántas variantes se generarán
+  const nColores = colores.length > 0 ? colores.length : 1;
+  const totalVariantes = tallasFilled * nColores;
 
   return (
     <>
@@ -338,6 +379,12 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
           autoFocus
         />
       </div>
+
+      {/* Selector de colores */}
+      <ColorSelector
+        coloresSeleccionados={colores}
+        onChange={nuevosColores => setAgregar('colores', nuevosColores)}
+      />
 
       {/* Tipo */}
       <div className="form-group">
@@ -507,6 +554,25 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
         </div>
       )}
 
+      {/* Resumen de variantes a crear */}
+      {tallasFilled > 0 && colores.length > 0 && (
+        <div style={{
+          marginBottom:'0.75rem', padding:'0.5rem 0.85rem',
+          background:'rgba(45,206,107,0.06)',
+          borderRadius:'var(--radius-sm)',
+          border:'1px solid var(--primary-glow)',
+          fontSize:'0.78rem',
+          display:'flex', alignItems:'center', gap:'0.5rem',
+        }}>
+          <span style={{ color:'var(--primary)', fontWeight:700, fontSize:'1rem' }}>ℹ</span>
+          <span style={{ color:'var(--text-secondary)' }}>
+            Se crearán{' '}
+            <strong style={{ color:'var(--primary)' }}>{totalVariantes} variantes</strong>
+            {' '}({colores.length} color{colores.length > 1 ? 'es' : ''} × {tallasFilled} talla{tallasFilled > 1 ? 's' : ''})
+          </span>
+        </div>
+      )}
+
       {/* Precio y Estado */}
       <div className="form-row">
         <div className="form-group">
@@ -526,6 +592,179 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
         </div>
       </div>
     </>
+  );
+}
+
+/* ── Selector de colores con búsqueda integrada ────────────────────────── */
+function ColorSelector({ coloresSeleccionados, onChange }) {
+  const [busqueda, setBusqueda] = useState('');
+  const [abierto,  setAbierto]  = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setAbierto(false);
+        setBusqueda('');
+      }
+    }
+    if (abierto) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [abierto]);
+
+  const coloresFiltrados = COLORES.filter(c =>
+    c.toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+  function toggleColor(color) {
+    if (coloresSeleccionados.includes(color)) {
+      onChange(coloresSeleccionados.filter(c => c !== color));
+    } else {
+      onChange([...coloresSeleccionados, color]);
+      setBusqueda('');
+    }
+  }
+
+  return (
+    <div className="form-group" ref={ref}>
+      <label className="form-label">
+        Color{' '}
+        <span style={{ color:'var(--text-muted)', fontWeight:400 }}>(opcional)</span>
+      </label>
+
+      {/* Chips de colores seleccionados */}
+      {coloresSeleccionados.length > 0 && (
+        <div style={{ display:'flex', flexWrap:'wrap', gap:'0.35rem', marginBottom:'0.5rem' }}>
+          {coloresSeleccionados.map(color => (
+            <span key={color} style={{
+              display:'inline-flex', alignItems:'center', gap:'0.3rem',
+              padding:'0.22rem 0.5rem 0.22rem 0.7rem',
+              borderRadius:20,
+              background:'var(--primary-subtle)',
+              border:'1px solid var(--primary-glow)',
+              color:'var(--primary)',
+              fontSize:'0.78rem', fontWeight:600,
+            }}>
+              {color}
+              <button
+                type="button"
+                onClick={() => onChange(coloresSeleccionados.filter(c => c !== color))}
+                style={{
+                  background:'none', border:'none', padding:'0 2px',
+                  color:'var(--primary)', cursor:'pointer',
+                  fontSize:'1rem', lineHeight:1,
+                  display:'flex', alignItems:'center',
+                }}
+              >×</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Input de búsqueda + dropdown */}
+      <div style={{ position:'relative' }}>
+        <input
+          className="form-control"
+          value={busqueda}
+          onChange={e => { setBusqueda(e.target.value); setAbierto(true); }}
+          onFocus={() => setAbierto(true)}
+          placeholder={coloresSeleccionados.length ? 'Agregar otro color...' : 'Buscar o seleccionar colores...'}
+          autoComplete="off"
+          style={{ paddingLeft: abierto ? '2.2rem' : undefined }}
+        />
+        {abierto && (
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); setAbierto(false); setBusqueda(''); }}
+            style={{
+              position:'absolute', left:'0.55rem', top:'50%', transform:'translateY(-50%)',
+              background:'none', border:'none', padding:'0 2px',
+              color:'var(--text-muted)', cursor:'pointer',
+              fontSize:'1.1rem', lineHeight:1,
+              display:'flex', alignItems:'center',
+              opacity:0.45,
+            }}
+            title="Cerrar"
+          >×</button>
+        )}
+
+        {abierto && (
+          <div style={{
+            position:'absolute', top:'calc(100% + 4px)', left:0, right:0,
+            background:'var(--bg-card)',
+            border:'1px solid var(--border-color)',
+            borderRadius:'var(--radius)',
+            boxShadow:'0 8px 24px rgba(0,0,0,0.4)',
+            maxHeight:220,
+            overflowY:'auto',
+            zIndex:100,
+          }}>
+            {coloresFiltrados.length === 0 ? (
+              <div style={{
+                padding:'0.75rem 1rem',
+                color:'var(--text-muted)',
+                fontSize:'0.85rem',
+                textAlign:'center',
+              }}>
+                Sin resultados para &ldquo;{busqueda}&rdquo;
+              </div>
+            ) : coloresFiltrados.map((color, i) => {
+              const sel = coloresSeleccionados.includes(color);
+              return (
+                <div
+                  key={color}
+                  onMouseDown={e => { e.preventDefault(); toggleColor(color); }}
+                  style={{
+                    display:'flex', alignItems:'center', gap:'0.65rem',
+                    padding:'0.52rem 1rem',
+                    cursor:'pointer',
+                    background: sel
+                      ? 'var(--primary-subtle)'
+                      : i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-mid)',
+                    borderLeft:`3px solid ${sel ? 'var(--primary)' : 'transparent'}`,
+                    color: sel ? 'var(--primary)' : 'var(--text-primary)',
+                    fontWeight: sel ? 600 : 400,
+                    fontSize:'0.88rem',
+                    transition:'background 0.12s',
+                  }}
+                >
+                  {/* Checkbox visual */}
+                  <span style={{
+                    width:15, height:15, borderRadius:3, flexShrink:0,
+                    border:`1.5px solid ${sel ? 'var(--primary)' : 'var(--border-color)'}`,
+                    background: sel ? 'var(--primary)' : 'transparent',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:'0.6rem', color:'#000', fontWeight:900,
+                  }}>
+                    {sel ? '✓' : ''}
+                  </span>
+                  {color}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Resumen y limpiar */}
+      {coloresSeleccionados.length > 0 && (
+        <div style={{ marginTop:'0.35rem', fontSize:'0.74rem', color:'var(--text-muted)' }}>
+          {coloresSeleccionados.length} color{coloresSeleccionados.length > 1 ? 'es' : ''} seleccionado{coloresSeleccionados.length > 1 ? 's' : ''}
+          {' · '}
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            style={{
+              background:'none', border:'none',
+              color:'var(--danger)', cursor:'pointer',
+              padding:0, fontSize:'0.74rem',
+            }}
+          >
+            Quitar todos
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
