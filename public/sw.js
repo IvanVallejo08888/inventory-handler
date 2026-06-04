@@ -1,4 +1,4 @@
-const CACHE_NAME = 'area17-v1';
+const CACHE_NAME = 'area17-v2';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -6,8 +6,8 @@ const PRECACHE_ASSETS = [
   '/login',
   '/offline.html',
   '/manifest.json',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg',
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png',
 ];
 
 self.addEventListener('install', (event) => {
