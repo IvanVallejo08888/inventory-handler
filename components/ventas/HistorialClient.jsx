@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader    from '@/components/ui/PageHeader';
 import Alert        from '@/components/ui/Alert';
@@ -37,19 +37,25 @@ export default function HistorialClient({
   const [confirmCancelar, setConfirmCancelar] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [factura, setFactura]   = useState(null);
-  const [menuCompartir, setMenuCompartir] = useState(false);
-  const [copiado, setCopiado]             = useState(false);
-  const [generandoImg, setGenerandoImg]   = useState(false);
+  const [generandoImg, setGenerandoImg] = useState(false);
+  const [loadingDots, setLoadingDots]   = useState('');
 
-  const promedio = ventas.length > 0 ? totalVentas / ventas.length : 0;
+  // Animación de puntos durante generación
+  useEffect(() => {
+    if (!generandoImg) { setLoadingDots(''); return; }
+    let c = 0;
+    const id = setInterval(() => { c = (c + 1) % 4; setLoadingDots('·'.repeat(c || 1)); }, 300);
+    return () => clearInterval(id);
+  }, [generandoImg]);
+
+  const promedio    = ventas.length > 0 ? totalVentas / ventas.length : 0;
   const completadas = ventas.filter(v => v.estado === 'COMPLETADA').length;
 
-  // ── Filtro tabla ────────────────────────────────────────────────────────
   const ventasFiltradas = buscar.trim()
     ? ventas.filter(v => JSON.stringify(v).toLowerCase().includes(buscar.toLowerCase()))
     : ventas;
 
-  // ── Cancelar venta ──────────────────────────────────────────────────────
+  // ── Cancelar venta ──────────────────────────────────────────────────────────
   async function cancelar() {
     if (!confirmCancelar) return;
     setCargando(true);
@@ -62,7 +68,7 @@ export default function HistorialClient({
     finally   { setCargando(false); }
   }
 
-  // ── Factura ─────────────────────────────────────────────────────────────
+  // ── Factura ─────────────────────────────────────────────────────────────────
   async function abrirFactura(v) {
     try {
       const res  = await fetch(`/api/ventas?accion=detalleJson&id=${v.id}`);
@@ -88,41 +94,7 @@ export default function HistorialClient({
     ].join('\n');
   }
 
-  function compartirWhatsApp() {
-    if (!factura) return;
-    const texto = encodeURIComponent(resumenTexto(factura));
-    if (navigator.share) {
-      navigator.share({ title: `Factura ${factura.codigo}`, text: resumenTexto(factura) }).catch(() => {});
-    } else {
-      window.open(`https://wa.me/?text=${texto}`, '_blank');
-    }
-    setMenuCompartir(false);
-  }
-
-  function compartirEmail() {
-    if (!factura) return;
-    const asunto = encodeURIComponent(`Factura Electrónica #${factura.codigo} — Área 17`);
-    const cuerpo = encodeURIComponent(resumenTexto(factura));
-    window.location.href = `mailto:?subject=${asunto}&body=${cuerpo}`;
-    setMenuCompartir(false);
-  }
-
-  function compartirSMS() {
-    if (!factura) return;
-    const body = encodeURIComponent(resumenTexto(factura));
-    window.location.href = `sms:?body=${body}`;
-    setMenuCompartir(false);
-  }
-
-  async function copiarTexto() {
-    if (!factura) return;
-    try {
-      await navigator.clipboard.writeText(resumenTexto(factura));
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    } catch { /* sin permiso de clipboard */ }
-  }
-
+  // ── Carga html2canvas desde CDN ────────────────────────────────────────────
   async function cargarHtml2Canvas() {
     if (window.html2canvas) return window.html2canvas;
     return new Promise((resolve, reject) => {
@@ -134,42 +106,75 @@ export default function HistorialClient({
     });
   }
 
+  // ── Descarga imagen (fallback) ─────────────────────────────────────────────
   async function descargarImagen() {
     if (!factura) return;
-    setGenerandoImg(true);
-    try {
-      const h2c = await cargarHtml2Canvas();
-      const el  = document.getElementById('factura-contenido');
-      if (!el) { window.print(); return; }
-      const canvas = await h2c(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
-      const url = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `factura-${factura.codigo}.png`;
-      a.click();
-      setMenuCompartir(false);
-    } catch { window.print(); }
-    finally { setGenerandoImg(false); }
+    const h2c = await cargarHtml2Canvas();
+    const el  = document.getElementById('factura-contenido');
+    if (!el) { window.print(); return; }
+    const canvas = await h2c(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url; a.download = `factura-${factura.codigo}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }
 
-  async function copiarImagen() {
+  // ── COMPARTIR — flujo directo: imagen → panel nativo del SO ───────────────
+  async function compartirFactura() {
     if (!factura) return;
     setGenerandoImg(true);
     try {
       const h2c = await cargarHtml2Canvas();
+      // Capturamos el contenido de la factura visible en pantalla
       const el  = document.getElementById('factura-contenido');
-      if (!el) return;
-      const canvas = await h2c(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
-      canvas.toBlob(async blob => {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          setCopiado(true);
-          setTimeout(() => setCopiado(false), 2500);
-          setMenuCompartir(false);
-        } catch { alert('Tu navegador no permite copiar imágenes. Prueba descargar.'); }
+      if (!el) { await descargarImagen(); return; }
+
+      const canvas = await h2c(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
       });
-    } catch { /* error silencioso */ }
-    finally { setGenerandoImg(false); }
+
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+      if (!blob) { await descargarImagen(); return; }
+
+      const file = new File([blob], `factura-${factura.codigo}.png`, { type: 'image/png' });
+
+      // Nivel 2 — compartir imagen con apps nativas (Android / iOS / Edge)
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Factura ${factura.codigo} — Área 17`,
+          text:  resumenTexto(factura),
+        });
+        return;
+      }
+
+      // Nivel 1 — compartir solo texto (Chrome escritorio, Firefox)
+      if (navigator.share) {
+        await navigator.share({
+          title: `Factura ${factura.codigo} — Área 17`,
+          text:  resumenTexto(factura),
+        });
+        return;
+      }
+
+      // Fallback — descargar imagen directamente
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `factura-${factura.codigo}.png`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        // El usuario canceló: no hacer nada. Otro error: intentar descarga.
+        try { await descargarImagen(); } catch { /* silencioso */ }
+      }
+    } finally {
+      setGenerandoImg(false);
+    }
   }
 
   const rvdFiltrados = rvdBuscar.trim()
@@ -199,7 +204,6 @@ export default function HistorialClient({
 
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:16, marginBottom:28 }}>
-        {/* Ingresos — expandible */}
         <div onClick={() => setIngExpandido(v => !v)} style={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:'var(--radius)', padding:'20px 18px', textAlign:'center', cursor:'pointer', position:'relative', overflow:'visible', transition:'var(--transition)' }}>
           <div style={{ fontSize:'1.6rem', marginBottom:8 }}>💰</div>
           <div style={{ fontSize:'1.7rem', fontWeight:900, color:'var(--primary)', fontFamily:"'Rajdhani',sans-serif" }}>${fmt(totalVentas)}</div>
@@ -410,85 +414,33 @@ export default function HistorialClient({
         </div>
       </ProductModal>
 
-      {/* Menú compartir factura */}
-      <ProductModal
-        isOpen={menuCompartir}
-        onClose={() => setMenuCompartir(false)}
-        title="Compartir Factura"
-        maxWidth={360}
-      >
-        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-          {factura && (
-            <div style={{ background:'var(--bg-input)', borderRadius:'var(--radius-sm)', padding:'0.75rem 1rem', marginBottom:'0.25rem', fontSize:'0.82rem', color:'var(--text-muted)', borderLeft:'3px solid var(--primary)' }}>
-              <span style={{ fontWeight:700, color:'var(--primary)' }}>#{factura.codigo}</span>
-              {' · '}${fmt2(factura.total)}
-              {' · '}{factura.fecha}
-            </div>
-          )}
-
-          {[
-            { icono:'📱', label:'WhatsApp',      desc:'Enviar por WhatsApp',         fn: compartirWhatsApp,  color:'#25d366' },
-            { icono:'✉️', label:'Correo',        desc:'Abrir cliente de correo',      fn: compartirEmail,     color:'#60a5fa' },
-            { icono:'💬', label:'SMS',            desc:'Enviar por mensaje de texto',  fn: compartirSMS,       color:'#a78bfa' },
-          ].map(op => (
-            <button key={op.label} onClick={op.fn} style={{
-              display:'flex', alignItems:'center', gap:'0.85rem',
-              padding:'0.85rem 1rem', borderRadius:'var(--radius-sm)',
-              background:'var(--bg-input)', border:'1px solid var(--border-color)',
-              cursor:'pointer', textAlign:'left', transition:'var(--transition)',
-              color:'var(--text-primary)', width:'100%',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = op.color; e.currentTarget.style.background = `${op.color}12`; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-input)'; }}
-            >
-              <span style={{ fontSize:'1.4rem', flexShrink:0 }}>{op.icono}</span>
-              <div>
-                <div style={{ fontWeight:700, fontSize:'0.88rem', color: op.color }}>{op.label}</div>
-                <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>{op.desc}</div>
-              </div>
-            </button>
-          ))}
-
-          <div style={{ borderTop:'1px solid var(--border-subtle)', margin:'0.25rem 0' }} />
-
-          {[
-            { icono:'📋', label: copiado ? '✓ ¡Copiado!' : 'Copiar texto',   desc:'Copiar resumen al portapapeles', fn: copiarTexto,    color:'#f59e0b' },
-            { icono:'📷', label: generandoImg ? 'Generando…' : 'Copiar imagen', desc:'Capturar factura como imagen',   fn: copiarImagen,   color:'#38bdf8' },
-            { icono:'📥', label: generandoImg ? 'Generando…' : 'Descargar PNG', desc:'Guardar factura como imagen PNG', fn: descargarImagen, color:'#4ade80' },
-          ].map(op => (
-            <button key={op.label} onClick={op.fn} disabled={generandoImg} style={{
-              display:'flex', alignItems:'center', gap:'0.85rem',
-              padding:'0.85rem 1rem', borderRadius:'var(--radius-sm)',
-              background:'var(--bg-input)', border:'1px solid var(--border-color)',
-              cursor: generandoImg ? 'not-allowed' : 'pointer', textAlign:'left', transition:'var(--transition)',
-              color:'var(--text-primary)', width:'100%', opacity: generandoImg ? 0.6 : 1,
-            }}
-              onMouseEnter={e => { if (!generandoImg) { e.currentTarget.style.borderColor = op.color; e.currentTarget.style.background = `${op.color}12`; }}}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-input)'; }}
-            >
-              <span style={{ fontSize:'1.4rem', flexShrink:0 }}>{op.icono}</span>
-              <div>
-                <div style={{ fontWeight:700, fontSize:'0.88rem', color: op.color }}>{op.label}</div>
-                <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>{op.desc}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </ProductModal>
-
-      {/* Factura imprimible */}
+      {/* ══ Factura imprimible ════════════════════════════════════════════════ */}
       {factura && (
         <div style={{ position:'fixed', inset:0, background:'#fff', zIndex:2000, overflowY:'auto', padding:'88px 40px 40px', color:'#111', fontFamily:"'Inter',Arial,sans-serif" }}>
+
           {/* Barra acciones */}
           <div style={{ position:'fixed', top:0, left:0, right:0, zIndex:2001, display:'flex', gap:10, alignItems:'center', justifyContent:'flex-end', padding:'12px 16px', background:'rgba(10,12,16,.92)', backdropFilter:'blur(12px)', borderBottom:'1px solid rgba(255,255,255,.08)' }}>
-            <button onClick={imprimirFactura} style={{ display:'inline-flex', alignItems:'center', gap:7, border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'#1f2937', color:'#fff' }}>🖨️ Imprimir</button>
-            <button onClick={() => setMenuCompartir(true)} style={{ display:'inline-flex', alignItems:'center', gap:7, border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'#1f2937', color:'#fff' }}>📤 Compartir</button>
+            <button onClick={imprimirFactura} style={{ display:'inline-flex', alignItems:'center', gap:7, border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'#1f2937', color:'#fff' }}>
+              🖨️ Imprimir
+            </button>
+
+            {/* Compartir — un solo clic genera imagen y abre panel nativo */}
+            <button
+              onClick={compartirFactura}
+              disabled={generandoImg}
+              style={{ display:'inline-flex', alignItems:'center', gap:7, border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor: generandoImg ? 'wait' : 'pointer', minHeight:44, background: generandoImg ? '#0d2d1a' : '#1f2937', color: generandoImg ? '#2dce6b' : '#fff', transition:'background 0.2s, color 0.2s', position:'relative' }}
+            >
+              {generandoImg
+                ? <><span style={{ display:'inline-block', animation:'pulse 0.8s ease-in-out infinite' }}>⏳</span> Generando{loadingDots}</>
+                : '📤 Compartir'
+              }
+            </button>
+
             <button onClick={() => setFactura(null)} style={{ display:'inline-flex', alignItems:'center', gap:7, borderRadius:10, padding:'11px 18px', fontSize:'.9rem', fontWeight:700, cursor:'pointer', minHeight:44, background:'rgba(239,68,68,.15)', color:'#f87171', border:'1px solid rgba(239,68,68,.35)' }}>✕ Cerrar</button>
           </div>
 
-          {/* Contenido factura */}
+          {/* Contenido imprimible */}
           <div id="factura-contenido">
-            {/* Header */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', paddingBottom:20, borderBottom:'3px solid #1a8a00', marginBottom:24 }}>
               <div>
                 <h1 style={{ fontSize:'2rem', fontWeight:900, color:'#1a8a00', letterSpacing:2, marginBottom:2 }}>▲ ÁREA 17</h1>
@@ -508,7 +460,6 @@ export default function HistorialClient({
               </div>
             </div>
 
-            {/* Datos */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
               {[
                 ['INFORMACIÓN DEL VENDEDOR', [factura.vendedorNombre, 'Área 17 - Equipo de ventas']],
@@ -521,7 +472,6 @@ export default function HistorialClient({
               ))}
             </div>
 
-            {/* Tabla productos */}
             <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:24 }}>
               <thead>
                 <tr>{['Código','Producto','Cant.','Precio Unit.','Descuento','Subtotal'].map(h => (
@@ -543,7 +493,6 @@ export default function HistorialClient({
               </tbody>
             </table>
 
-            {/* Totales */}
             <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:24 }}>
               <div style={{ minWidth:260, border:'1px solid #b6e8a0', borderRadius:8, overflow:'hidden' }}>
                 {[
@@ -572,12 +521,12 @@ export default function HistorialClient({
               </div>
             </div>
 
-            {/* Footer */}
             <div style={{ textAlign:'center', paddingTop:20, borderTop:'2px dashed #b6e8a0', fontSize:'0.8rem', color:'#888' }}>
               <p>Gracias por su compra en <strong style={{ color:'#1a8a00' }}>Área 17 - La Mejor Tienda Deportiva</strong></p>
               <p style={{ marginTop:6 }}>Documento generado el {new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' })}</p>
             </div>
           </div>
+
         </div>
       )}
     </div>
