@@ -22,7 +22,7 @@ export default async function DashboardPage() {
   const admin = esAdmin(sesion);
 
   const [ventasDeHoy, todasVentas, ventasSem, ventasDeMes,
-         cajaHoy, ingresosMes, gastosMesVal, productoTop, vendedorMes] = await Promise.all([
+         cajaHoy, ingresosMes, gastosMesVal, productoTop, vendedorMes, t3Prod] = await Promise.all([
     ventasHoy(),
     listarVentas(),
     ventasSemana(),
@@ -32,6 +32,7 @@ export default async function DashboardPage() {
     totalGastosMes(),
     productoMasVendido(),
     vendedorDelMes(),
+    top3ProductosMes(),
   ]);
   const utilidadMes = ingresosMes - gastosMesVal;
 
@@ -103,6 +104,7 @@ export default async function DashboardPage() {
       ingresosMes={misVentasMes.reduce((s, v) => s + v.total, 0)}
       ventasRecientes={misVentasRecientes}
       productoTop={productoTop}
+      top3Productos={t3Prod}
     />
   );
 }
