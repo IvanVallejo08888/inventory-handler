@@ -27,7 +27,7 @@ const COLORES = [
 ];
 
 const FORM_EDIT_VACIO    = { nombre:'', precio:'', cantidad:'', estado:'ACTIVO' };
-const FORM_AGREGAR_VACIO = { nombre:'', tipo:'', subTipo:'', precio:'', estado:'ACTIVO', tallas:{}, colores:[] };
+const FORM_AGREGAR_VACIO = { nombre:'', tipo:'', subTipo:'', precio:'', estado:'ACTIVO', tallas:{}, colores:[], cantidad: 0 };
 
 export default function InventarioClient({
   lista, totalProductos, productosActivos,
@@ -55,7 +55,7 @@ export default function InventarioClient({
   function setAgregar(k, v) {
     setFormAgregar(f => {
       const next = { ...f, [k]: v };
-      if (k === 'tipo')    { next.subTipo = ''; next.tallas = {}; }
+      if (k === 'tipo')    { next.subTipo = ''; next.tallas = {}; next.cantidad = 0; }
       if (k === 'subTipo') { next.tallas = {}; }
       return next;
     });
@@ -108,40 +108,46 @@ export default function InventarioClient({
   }
 
   // Agregar con tallas y colores — genera una variante por cada combinación color×talla
+  // Para Producto General genera una variante por color (o una sola si no hay colores)
   async function enviarTallas() {
-    const { nombre, tipo, subTipo, precio, estado, tallas, colores } = formAgregar;
+    const { nombre, tipo, subTipo, precio, estado, tallas, colores, cantidad } = formAgregar;
 
     if (!nombre.trim())                    { setMsgTipo('error'); setMsg('El nombre del producto es obligatorio.'); return; }
     if (!tipo)                             { setMsgTipo('error'); setMsg('Selecciona el tipo de producto.'); return; }
     if (tipo === 'CALZADO' && !subTipo)    { setMsgTipo('error'); setMsg('Indica si el calzado es para niño o adulto.'); return; }
     if (!precio || parseFloat(precio) < 0) { setMsgTipo('error'); setMsg('Ingresa un precio válido.'); return; }
 
-    const tallasConCantidad = Object.entries(tallas).filter(([, c]) => c > 0);
-    if (!tallasConCantidad.length) {
-      setMsgTipo('error'); setMsg('Agrega al menos una talla con cantidad mayor a 0.'); return;
-    }
-
-    // Construir todas las variantes (color × talla) sin duplicados
     const nombreBase = nombre.trim().toUpperCase();
     const seen = new Set();
     const variantes = [];
 
-    if (colores.length > 0) {
-      for (const color of colores) {
-        for (const [talla, cantidad] of tallasConCantidad) {
-          const nombreFinal = `${nombreBase} COLOR ${color.toUpperCase()} TALLA ${talla}`;
-          if (!seen.has(nombreFinal)) {
-            seen.add(nombreFinal);
-            variantes.push({ nombre: nombreFinal, cantidad });
-          }
+    if (tipo === 'GENERAL') {
+      const cant = Math.max(0, parseInt(cantidad) || 0);
+      if (cant <= 0) { setMsgTipo('error'); setMsg('La cantidad disponible debe ser mayor a 0.'); return; }
+      if (colores.length > 0) {
+        for (const color of colores) {
+          const nombreFinal = `${nombreBase} COLOR ${color.toUpperCase()}`;
+          if (!seen.has(nombreFinal)) { seen.add(nombreFinal); variantes.push({ nombre: nombreFinal, cantidad: cant }); }
         }
+      } else {
+        variantes.push({ nombre: nombreBase, cantidad: cant });
       }
     } else {
-      for (const [talla, cantidad] of tallasConCantidad) {
-        const nombreFinal = `${nombreBase} TALLA ${talla}`;
-        if (!seen.has(nombreFinal)) {
-          seen.add(nombreFinal);
-          variantes.push({ nombre: nombreFinal, cantidad });
+      const tallasConCantidad = Object.entries(tallas).filter(([, c]) => c > 0);
+      if (!tallasConCantidad.length) {
+        setMsgTipo('error'); setMsg('Agrega al menos una talla con cantidad mayor a 0.'); return;
+      }
+      if (colores.length > 0) {
+        for (const color of colores) {
+          for (const [talla, cant] of tallasConCantidad) {
+            const nombreFinal = `${nombreBase} COLOR ${color.toUpperCase()} TALLA ${talla}`;
+            if (!seen.has(nombreFinal)) { seen.add(nombreFinal); variantes.push({ nombre: nombreFinal, cantidad: cant }); }
+          }
+        }
+      } else {
+        for (const [talla, cant] of tallasConCantidad) {
+          const nombreFinal = `${nombreBase} TALLA ${talla}`;
+          if (!seen.has(nombreFinal)) { seen.add(nombreFinal); variantes.push({ nombre: nombreFinal, cantidad: cant }); }
         }
       }
     }
@@ -352,7 +358,7 @@ export default function InventarioClient({
 
 /* ── Formulario de agregar con tallas ──────────────────────────────────── */
 function FormAgregarProducto({ form, setAgregar, setTalla }) {
-  const { nombre, tipo, subTipo, precio, estado, tallas, colores } = form;
+  const { nombre, tipo, subTipo, precio, estado, tallas, colores, cantidad } = form;
 
   let tallasActuales = [];
   if (tipo === 'ROPA')                             tallasActuales = TALLAS_ROPA;
@@ -365,6 +371,7 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
   // Cuántas variantes se generarán
   const nColores = colores.length > 0 ? colores.length : 1;
   const totalVariantes = tallasFilled * nColores;
+  const cantGeneral = Math.max(0, parseInt(cantidad) || 0);
 
   return (
     <>
@@ -375,7 +382,7 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
           className="form-control"
           value={nombre}
           onChange={e => setAgregar('nombre', e.target.value)}
-          placeholder="Ej: Uniforme Pasto, Tenis Nike..."
+          placeholder="Ej: Uniforme Pasto, Tenis Nike, Gorra Adidas..."
           autoFocus
         />
       </div>
@@ -390,7 +397,7 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
       <div className="form-group">
         <label className="form-label">Tipo de producto *</label>
         <div style={{ display:'flex', gap:'0.75rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
-          {[['ROPA','👕 Ropa'], ['CALZADO','👟 Calzado']].map(([val, lbl]) => (
+          {[['ROPA','👕 Ropa'], ['CALZADO','👟 Calzado'], ['GENERAL','📦 General']].map(([val, lbl]) => (
             <label key={val} style={{
               display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer',
               padding:'0.55rem 1.1rem', borderRadius:'var(--radius-sm)',
@@ -398,7 +405,7 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
               background: tipo === val ? 'var(--primary-subtle)' : 'var(--bg-card)',
               color:      tipo === val ? 'var(--primary)'        : 'var(--text-secondary)',
               fontWeight: tipo === val ? 700 : 400,
-              transition:'var(--transition)', flex:'1 1 110px',
+              transition:'var(--transition)', flex:'1 1 100px',
             }}>
               <input
                 type="radio" name="tipo" value={val} checked={tipo === val}
@@ -435,6 +442,85 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
               </label>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Cantidad única para Producto General */}
+      {tipo === 'GENERAL' && (
+        <div className="form-group">
+          <label className="form-label">Cantidad Disponible *</label>
+          <div style={{
+            borderRadius:'var(--radius)',
+            border:'1px solid var(--border-color)',
+            overflow:'hidden',
+          }}>
+            <div style={{
+              display:'flex', alignItems:'center', gap:'0.75rem',
+              padding:'0.65rem 1rem',
+              background: cantGeneral > 0
+                ? 'linear-gradient(90deg,rgba(45,206,107,0.09) 0%,var(--bg-card) 100%)'
+                : 'var(--bg-card)',
+              borderLeft:`3px solid ${cantGeneral > 0 ? 'var(--primary)' : 'transparent'}`,
+              transition:'background 0.2s, border-color 0.2s',
+            }}>
+              <button
+                type="button"
+                onClick={() => setAgregar('cantidad', cantGeneral - 1)}
+                disabled={cantGeneral === 0}
+                style={{
+                  width:30, height:30, borderRadius:'50%', padding:0,
+                  border:'1px solid var(--border-color)',
+                  background: cantGeneral === 0 ? 'transparent' : 'var(--bg-input)',
+                  color: cantGeneral === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+                  cursor: cantGeneral === 0 ? 'not-allowed' : 'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'1rem', transition:'var(--transition)',
+                }}
+              >−</button>
+
+              <input
+                type="number" min="0"
+                value={cantGeneral}
+                onChange={e => setAgregar('cantidad', Math.max(0, parseInt(e.target.value) || 0))}
+                style={{
+                  flex:1, textAlign:'center', padding:'0.28rem 0.2rem',
+                  background:'var(--bg-input)',
+                  border:`1px solid ${cantGeneral > 0 ? 'var(--primary)' : 'var(--border-color)'}`,
+                  borderRadius:'var(--radius-xs)',
+                  color:'var(--text-primary)',
+                  fontSize:'0.88rem', fontWeight:600,
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setAgregar('cantidad', cantGeneral + 1)}
+                style={{
+                  width:30, height:30, borderRadius:'50%', padding:0,
+                  border:'1.5px solid var(--primary)',
+                  background:'var(--primary-subtle)',
+                  color:'var(--primary)',
+                  cursor:'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'1rem', transition:'var(--transition)',
+                }}
+              >+</button>
+            </div>
+          </div>
+
+          {cantGeneral > 0 && (
+            <div style={{
+              marginTop:'0.4rem', padding:'0.45rem 0.75rem',
+              background:'var(--primary-subtle)',
+              borderRadius:'var(--radius-sm)',
+              border:'1px solid var(--primary-glow)',
+              display:'flex', justifyContent:'space-between',
+              fontSize:'0.78rem',
+            }}>
+              <span style={{ color:'var(--text-secondary)' }}>Cantidad a registrar</span>
+              <span style={{ color:'var(--primary)', fontWeight:700 }}>{cantGeneral} unidades</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -554,7 +640,7 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
         </div>
       )}
 
-      {/* Resumen de variantes a crear */}
+      {/* Resumen de variantes a crear (ropa/calzado con colores) */}
       {tallasFilled > 0 && colores.length > 0 && (
         <div style={{
           marginBottom:'0.75rem', padding:'0.5rem 0.85rem',
@@ -569,6 +655,25 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
             Se crearán{' '}
             <strong style={{ color:'var(--primary)' }}>{totalVariantes} variantes</strong>
             {' '}({colores.length} color{colores.length > 1 ? 'es' : ''} × {tallasFilled} talla{tallasFilled > 1 ? 's' : ''})
+          </span>
+        </div>
+      )}
+
+      {/* Resumen de variantes a crear (general con colores) */}
+      {tipo === 'GENERAL' && cantGeneral > 0 && colores.length > 0 && (
+        <div style={{
+          marginBottom:'0.75rem', padding:'0.5rem 0.85rem',
+          background:'rgba(45,206,107,0.06)',
+          borderRadius:'var(--radius-sm)',
+          border:'1px solid var(--primary-glow)',
+          fontSize:'0.78rem',
+          display:'flex', alignItems:'center', gap:'0.5rem',
+        }}>
+          <span style={{ color:'var(--primary)', fontWeight:700, fontSize:'1rem' }}>ℹ</span>
+          <span style={{ color:'var(--text-secondary)' }}>
+            Se crearán{' '}
+            <strong style={{ color:'var(--primary)' }}>{colores.length} variante{colores.length > 1 ? 's' : ''}</strong>
+            {' '}({colores.length} color{colores.length > 1 ? 'es' : ''} × {cantGeneral} unidad{cantGeneral > 1 ? 'es' : ''} cada una)
           </span>
         </div>
       )}
