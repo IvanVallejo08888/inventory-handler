@@ -9,9 +9,10 @@ import { fmtCompact, fmtLargo } from '@/lib/formatCompact';
 
 const fmt = fmtLargo;
 
-const TALLAS_ROPA   = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const TALLAS_NINO   = Array.from({ length: 17 }, (_, i) => String(i));
-const TALLAS_ADULTO = Array.from({ length: 19 }, (_, i) => String(i + 24));
+const TALLAS_ROPA      = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const TALLAS_ROPA_NINO = Array.from({ length: 15 }, (_, i) => String(i * 2)); // 0,2,4,...,28
+const TALLAS_NINO      = Array.from({ length: 17 }, (_, i) => String(i));
+const TALLAS_ADULTO    = Array.from({ length: 19 }, (_, i) => String(i + 24));
 
 const COLORES = [
   'Blanco', 'Negro', 'Gris', 'Plata',
@@ -115,6 +116,7 @@ export default function InventarioClient({
     if (!nombre.trim())                    { setMsgTipo('error'); setMsg('El nombre del producto es obligatorio.'); return; }
     if (!tipo)                             { setMsgTipo('error'); setMsg('Selecciona el tipo de producto.'); return; }
     if (tipo === 'CALZADO' && !subTipo)    { setMsgTipo('error'); setMsg('Indica si el calzado es para niño o adulto.'); return; }
+    if (tipo === 'ROPA'    && !subTipo)    { setMsgTipo('error'); setMsg('Indica si la ropa es para niño o adulto.'); return; }
     if (!precio || parseFloat(precio) < 0) { setMsgTipo('error'); setMsg('Ingresa un precio válido.'); return; }
 
     const nombreBase = nombre.trim().toUpperCase();
@@ -361,7 +363,8 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
   const { nombre, tipo, subTipo, precio, estado, tallas, colores, cantidad } = form;
 
   let tallasActuales = [];
-  if (tipo === 'ROPA')                             tallasActuales = TALLAS_ROPA;
+  if      (tipo === 'ROPA'    && subTipo === 'ADULTO') tallasActuales = TALLAS_ROPA;
+  else if (tipo === 'ROPA'    && subTipo === 'NINO')   tallasActuales = TALLAS_ROPA_NINO;
   else if (tipo === 'CALZADO' && subTipo === 'NINO')   tallasActuales = TALLAS_NINO;
   else if (tipo === 'CALZADO' && subTipo === 'ADULTO') tallasActuales = TALLAS_ADULTO;
 
@@ -418,6 +421,33 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
         </div>
       </div>
 
+      {/* Sub-tipo ropa */}
+      {tipo === 'ROPA' && (
+        <div className="form-group">
+          <label className="form-label">¿Para quién es? *</label>
+          <div style={{ display:'flex', gap:'0.75rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
+            {[['NINO','👦 Niño'], ['ADULTO','👨 Adulto']].map(([val, lbl]) => (
+              <label key={val} style={{
+                display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer',
+                padding:'0.55rem 1.1rem', borderRadius:'var(--radius-sm)',
+                border:`1.5px solid ${subTipo === val ? 'var(--primary)' : 'var(--border-color)'}`,
+                background: subTipo === val ? 'var(--primary-subtle)' : 'var(--bg-card)',
+                color:      subTipo === val ? 'var(--primary)'        : 'var(--text-secondary)',
+                fontWeight: subTipo === val ? 700 : 400,
+                transition:'var(--transition)', flex:'1 1 110px',
+              }}>
+                <input
+                  type="radio" name="subTipoRopa" value={val} checked={subTipo === val}
+                  onChange={() => setAgregar('subTipo', val)}
+                  style={{ accentColor:'var(--primary)', cursor:'pointer' }}
+                />
+                {lbl}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Sub-tipo calzado */}
       {tipo === 'CALZADO' && (
         <div className="form-group">
@@ -434,7 +464,7 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
                 transition:'var(--transition)', flex:'1 1 110px',
               }}>
                 <input
-                  type="radio" name="subTipo" value={val} checked={subTipo === val}
+                  type="radio" name="subTipoCalzado" value={val} checked={subTipo === val}
                   onChange={() => setAgregar('subTipo', val)}
                   style={{ accentColor:'var(--primary)', cursor:'pointer' }}
                 />
