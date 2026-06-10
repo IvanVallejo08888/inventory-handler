@@ -52,6 +52,7 @@ export default async function InventarioPage({ searchParams }) {
   return (
     <InventarioClient
       lista={lista}
+      todosProductos={todos}
       totalProductos={total}
       productosActivos={activos}
       totalUnidades={unidades}

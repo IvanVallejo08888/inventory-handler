@@ -1,11 +1,12 @@
 'use client';
-import { useState, useTransition, useRef, useEffect } from 'react';
+import { useState, useTransition, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader    from '@/components/ui/PageHeader';
 import Alert        from '@/components/ui/Alert';
 import ProductModal from '@/components/inventario/ProductModal';
 import StockAlerts  from '@/components/inventario/StockAlerts';
 import { fmtCompact, fmtLargo } from '@/lib/formatCompact';
+import { tokenizar, scoreCoincidencia } from '@/lib/fuzzySearch';
 
 const fmt = fmtLargo;
 
@@ -33,9 +34,9 @@ const FORM_AGREGAR_VACIO = { nombre:'', tipo:'', subTipo:'', precio:'', estado:'
 const PAGE_SIZE = 20;
 
 export default function InventarioClient({
-  lista, totalProductos, productosActivos,
+  totalProductos, productosActivos,
   totalUnidades, valorInventario, buscar, filtroEstado,
-  stockBajo = [],
+  stockBajo = [], todosProductos = [],
 }) {
   const router              = useRouter();
   const [, startTransition] = useTransition();
@@ -56,10 +57,46 @@ export default function InventarioClient({
   // Carga progresiva de la lista
   const [visibles, setVisibles] = useState(PAGE_SIZE);
 
-  useEffect(() => { setVisibles(PAGE_SIZE); }, [buscar, filtroEstado]);
+  // Búsqueda y filtro en tiempo real
+  const [busqueda, setBusqueda]   = useState(buscar || '');
+  const [busquedaDeb, setBusquedaDeb] = useState(buscar || '');
+  const [estadoFiltro, setEstadoFiltro] = useState(filtroEstado || 'TODOS');
 
-  const listaVisible = lista.slice(0, visibles);
-  const hayMas       = visibles < lista.length;
+  // Debounce ligero para no recalcular el ranking en cada pulsación
+  useEffect(() => {
+    const id = setTimeout(() => setBusquedaDeb(busqueda), 150);
+    return () => clearTimeout(id);
+  }, [busqueda]);
+
+  useEffect(() => { setVisibles(PAGE_SIZE); }, [busquedaDeb, estadoFiltro]);
+
+  // Pre-indexa nombre + código de cada producto en palabras normalizadas
+  const productosIndexados = useMemo(() => (
+    todosProductos.map(p => ({ ...p, _palabras: [...tokenizar(p.nombre), ...tokenizar(p.codigo)] }))
+  ), [todosProductos]);
+
+  // Filtro por estado + búsqueda difusa, con ranking por relevancia
+  const resultados = useMemo(() => {
+    let base = productosIndexados;
+    if (estadoFiltro !== 'TODOS') {
+      base = base.filter(p => p.estado === estadoFiltro);
+    }
+
+    const tokens = tokenizar(busquedaDeb);
+    if (!tokens.length) return base;
+
+    const conScore = [];
+    for (const p of base) {
+      const score = scoreCoincidencia(p._palabras, tokens);
+      if (score !== null) conScore.push({ p, score });
+    }
+    conScore.sort((a, b) => a.score - b.score || a.p.nombre.length - b.p.nombre.length || a.p.id - b.p.id);
+    return conScore.map(({ p }) => p);
+  }, [productosIndexados, estadoFiltro, busquedaDeb]);
+
+  const listaVisible = resultados.slice(0, visibles);
+  const hayMas       = visibles < resultados.length;
+  const sinResultadosPorBusqueda = resultados.length === 0 && tokenizar(busqueda).length > 0;
 
   function set(k, v) { setFormState(f => ({ ...f, [k]: v })); }
 
@@ -227,33 +264,36 @@ export default function InventarioClient({
       <StockAlerts productos={stockBajo} onReponer={abrirEditar} />
 
       {/* Búsqueda */}
-      <form method="GET" className="search-bar">
+      <div className="search-bar">
         <input
           name="buscar"
-          defaultValue={buscar}
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
           placeholder="Buscar por nombre o código..."
           style={{ flex:1, minWidth:180 }}
         />
-        <select name="estado" defaultValue={filtroEstado}>
+        <select name="estado" value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)}>
           <option value="TODOS">Todos los estados</option>
           <option value="ACTIVO">Activos</option>
           <option value="INACTIVO">Inactivos</option>
         </select>
-        <button type="submit" className="btn btn-primary" style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}>
-          Buscar
-        </button>
-        {(buscar || filtroEstado !== 'TODOS') && (
-          <a href="/main/inventario" className="btn btn-secondary" style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}>
+        {(busqueda || estadoFiltro !== 'TODOS') && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ padding:'0.5rem 1rem', fontSize:'0.85rem' }}
+            onClick={() => { setBusqueda(''); setEstadoFiltro('TODOS'); }}
+          >
             Limpiar
-          </a>
+          </button>
         )}
-      </form>
+      </div>
 
       {/* Tabla */}
       <div className="panel">
         <div className="panel-header">
           <span className="panel-title">Lista de productos</span>
-          <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{lista.length} registros</span>
+          <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{resultados.length} registros</span>
         </div>
         <div className="table-responsive">
           <table className="area17-table">
@@ -286,10 +326,10 @@ export default function InventarioClient({
                   </td>
                 </tr>
               ))}
-              {!lista.length && (
+              {!resultados.length && (
                 <tr>
                   <td colSpan={7} style={{ textAlign:'center', color:'var(--text-muted)', padding:'2rem' }}>
-                    No se encontraron productos
+                    {sinResultadosPorBusqueda ? 'No se encontraron productos coincidentes' : 'No se encontraron productos'}
                   </td>
                 </tr>
               )}
