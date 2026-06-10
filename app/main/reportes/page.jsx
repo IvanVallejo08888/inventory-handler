@@ -23,6 +23,8 @@ export default async function ReportesPage() {
       transferenciaHoy={datos.transferenciaHoy}
       efectivoMes={datos.efectivoMes}
       transferenciaMes={datos.transferenciaMes}
+      addiHoy={datos.addiHoy}
+      addiMes={datos.addiMes}
     />
   );
 }

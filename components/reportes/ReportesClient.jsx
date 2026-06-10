@@ -73,6 +73,7 @@ export default function ReportesClient({
   reporteHoy, reporteMes,
   ventasPorDia, productosMasVendidos, gastosPorCategoria,
   efectivoHoy, transferenciaHoy, efectivoMes, transferenciaMes,
+  addiHoy, addiMes,
 }) {
   // ── Chart refs ────────────────────────────────────────────────────────
   const refVentasDia   = useRef(null);
@@ -216,7 +217,7 @@ export default function ReportesClient({
           <KpiCard icon="🛒" valor={reporteHoy.totalVentas} label="Ventas completadas" tag="HOY" tipo="ventas" />
           <KpiCard icon="💰" valor={`$${fmt(reporteHoy.totalIngresos)}`} label="Ingresos brutos" tag="HOY" tipo="ingresos" clickable>
             <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid rgba(255,255,255,.1)' }}>
-              {[['💵 Efectivo','#4ade80',efectivoHoy],['🏦 Transferencia','#60a5fa',transferenciaHoy]].map(([l,c,v]) => (
+              {[['💵 Efectivo','#4ade80',efectivoHoy],['🏦 Transferencia','#60a5fa',transferenciaHoy],['📠 Addi','#c084fc',addiHoy]].map(([l,c,v]) => (
                 <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', fontSize:12 }}>
                   <span style={{ color:'var(--text-muted)' }}>{l}</span>
                   <span style={{ fontWeight:700, color:c }}>${fmt(v)}</span>
@@ -240,7 +241,7 @@ export default function ReportesClient({
           <KpiCard icon="📦" valor={reporteMes.totalVentas}             label="Total ventas"    tag="MES" tipo="ventas" />
           <KpiCard icon="💵" valor={`$${fmt(reporteMes.totalIngresos)}`} label="Ingresos totales" tag="MES" tipo="ingresos" clickable>
             <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid rgba(255,255,255,.1)' }}>
-              {[['💵 Efectivo','#4ade80',efectivoMes],['🏦 Transferencia','#60a5fa',transferenciaMes]].map(([l,c,v]) => (
+              {[['💵 Efectivo','#4ade80',efectivoMes],['🏦 Transferencia','#60a5fa',transferenciaMes],['📠 Addi','#c084fc',addiMes]].map(([l,c,v]) => (
                 <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', fontSize:12 }}>
                   <span style={{ color:'var(--text-muted)' }}>{l}</span>
                   <span style={{ fontWeight:700, color:c }}>${fmt(v)}</span>

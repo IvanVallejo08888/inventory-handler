@@ -14,6 +14,7 @@ const BADGE_PAGO = {
   EFECTIVO:      <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(74,222,128,.15)', color:'#4ade80', border:'1px solid rgba(74,222,128,.3)' }}>💵 Efectivo</span>,
   TRANSFERENCIA: <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(96,165,250,.15)', color:'#60a5fa', border:'1px solid rgba(96,165,250,.3)' }}>🏦 Transf.</span>,
   MIXTO:         <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(251,191,36,.15)',  color:'#fbbf24', border:'1px solid rgba(251,191,36,.3)'  }}>💳 Mixto</span>,
+  ADDI:          <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(192,132,252,.15)', color:'#c084fc', border:'1px solid rgba(192,132,252,.3)' }}>📠 Addi</span>,
 };
 
 function getIni(nombre) {
@@ -23,7 +24,7 @@ function getIni(nombre) {
 
 export default function HistorialClient({
   ventas, periodo, esAdmin,
-  totalVentas, totalEfectivo, totalTransferencia,
+  totalVentas, totalEfectivo, totalTransferencia, totalAddi,
   resumenVendedores, totalGeneralDia, vendedoresSinVentas, fechaResumen,
 }) {
   const router    = useRouter();
@@ -210,7 +211,7 @@ export default function HistorialClient({
           <div style={{ fontSize:'0.72rem', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>Total ingresos</div>
           {ingExpandido && (
             <div style={{ position:'absolute', top:'calc(100% + 6px)', left:'50%', transform:'translateX(-50%)', width:220, padding:'12px 14px 10px', background:'var(--bg-card)', border:'1px solid rgba(57,255,20,.25)', borderRadius:10, boxShadow:'0 8px 28px rgba(0,0,0,.6)', textAlign:'left', zIndex:100 }}>
-              {[['💵 Efectivo', '#4ade80', totalEfectivo],['🏦 Transferencia','#60a5fa', totalTransferencia]].map(([lbl, col, val]) => (
+              {[['💵 Efectivo', '#4ade80', totalEfectivo],['🏦 Transferencia','#60a5fa', totalTransferencia],['📠 Addi','#c084fc', totalAddi]].map(([lbl, col, val]) => (
                 <div key={lbl} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:12, padding:'5px 0', borderBottom:'1px solid rgba(255,255,255,.05)' }}>
                   <span style={{ color: col }}>{lbl}</span>
                   <strong style={{ color: col }}>${fmt(val)}</strong>
@@ -302,6 +303,7 @@ export default function HistorialClient({
                             {[
                               ['💵 Efectivo',     '#4ade80', `$${fmt(r.totalEfectivo)}`],
                               ['🏦 Transferencia','#60a5fa', `$${fmt(r.totalTransferencia)}`],
+                              ['📠 Addi',         '#c084fc', `$${fmt(r.totalAddi)}`],
                               ['🧾 N° ventas',    'inherit', r.cantidadVentas],
                               ['⏰ Última venta', 'inherit', r.ultimaHora || '—'],
                             ].map(([lbl, col, val]) => (
@@ -510,7 +512,7 @@ export default function HistorialClient({
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 16px', fontSize:'0.8rem', color:'#555', borderTop:'1px dashed #e5f0e0' }}>
                   <span>Método de pago</span>
-                  <span>{factura.tipoPago === 'TRANSFERENCIA' ? '🏦 Transf.' : factura.tipoPago === 'MIXTO' ? '💳 Mixto' : '💵 Efectivo'}</span>
+                  <span>{factura.tipoPago === 'TRANSFERENCIA' ? '🏦 Transf.' : factura.tipoPago === 'MIXTO' ? '💳 Mixto' : factura.tipoPago === 'ADDI' ? '📠 Addi' : '💵 Efectivo'}</span>
                 </div>
                 {factura.tipoPago === 'MIXTO' && (
                   <>

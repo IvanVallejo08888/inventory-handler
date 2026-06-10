@@ -443,9 +443,9 @@ export default function DashboardAdmin(p) {
             <div style={{ fontSize:'0.68rem', fontWeight:700, color:'rgba(45,206,107,0.75)', textTransform:'uppercase', letterSpacing:'0.1em' }}>
               💵 Caja hoy
             </div>
-            {(p.efectivoHoy > 0 || p.transferenciaHoy > 0) && (
+            {(p.efectivoHoy > 0 || p.transferenciaHoy > 0 || p.addiHoy > 0) && (
               <div style={{ fontSize:'0.62rem', color:'rgba(200,240,216,0.5)', marginTop:'2px' }}>
-                💵 {fmtFull(p.efectivoHoy)} · 🏦 {fmtFull(p.transferenciaHoy)}
+                💵 {fmtFull(p.efectivoHoy)} · 🏦 {fmtFull(p.transferenciaHoy)} · 📠 {fmtFull(p.addiHoy)}
               </div>
             )}
           </div>
@@ -586,8 +586,10 @@ export default function DashboardAdmin(p) {
         {[
           { label:'Efectivo hoy',      val:p.efectivoHoy,      icono:'💵', color:'#4ade80' },
           { label:'Transferencia hoy', val:p.transferenciaHoy, icono:'🏦', color:'#60a5fa' },
+          { label:'Addi hoy',          val:p.addiHoy,          icono:'📠', color:'#c084fc' },
           { label:'Efectivo mes',      val:p.efectivoMes,      icono:'💵', color:'#4ade80' },
           { label:'Transferencia mes', val:p.transferenciaMes, icono:'🏦', color:'#60a5fa' },
+          { label:'Addi mes',          val:p.addiMes,          icono:'📠', color:'#c084fc' },
         ].map(c => (
           <div key={c.label} style={{
             background:'var(--bg-card)', border:'1px solid var(--border-color)',

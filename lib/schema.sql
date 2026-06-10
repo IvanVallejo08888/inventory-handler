@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS ventas (
   estado               TEXT    NOT NULL DEFAULT 'COMPLETADA',
   tipo_pago            TEXT    NOT NULL DEFAULT 'EFECTIVO',
   valor_efectivo       NUMERIC(12,2) NOT NULL DEFAULT 0,
-  valor_transferencia  NUMERIC(12,2) NOT NULL DEFAULT 0
+  valor_transferencia  NUMERIC(12,2) NOT NULL DEFAULT 0,
+  valor_addi           NUMERIC(12,2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS detalles_ventas (

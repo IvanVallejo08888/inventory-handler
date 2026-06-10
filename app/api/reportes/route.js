@@ -101,6 +101,7 @@ function esMonetaria(hdr) {
   return h.includes('precio')    || h.includes('total')    || h.includes('valor')  ||
          h.includes('subtotal')  || h.includes('desc')     || h.includes('ingreso') ||
          h.includes('gasto')     || h.includes('efectivo') || h.includes('transfer') ||
+         h.includes('addi')      ||
          h.includes('utilidad')  || h.includes('vendido')  || h.includes('balance');
 }
 
@@ -195,10 +196,10 @@ async function dInventario() {
 
 async function dVentas() {
   const v  = await listarVentas();
-  const hs = ['ID','Código','Fecha','Hora','Vendedor ID','Vendedor','Subtotal','Desc. Productos','Desc. Total','Tipo Desc.','Total','Estado','Tipo Pago','Efectivo','Transferencia'];
-  const rs = v.map(x=>[x.id,x.codigo,x.fecha,x.hora,x.vendedorId,x.vendedorNombre,+fmt2(x.subtotal),+fmt2(x.descuentoProductos),+fmt2(x.descuentoTotal),x.descuentoTipo,+fmt2(x.total),x.estado,x.tipoPago||'EFECTIVO',+fmt2(x.valorEfectivo),+fmt2(x.valorTransferencia)]);
+  const hs = ['ID','Código','Fecha','Hora','Vendedor ID','Vendedor','Subtotal','Desc. Productos','Desc. Total','Tipo Desc.','Total','Estado','Tipo Pago','Efectivo','Transferencia','Addi'];
+  const rs = v.map(x=>[x.id,x.codigo,x.fecha,x.hora,x.vendedorId,x.vendedorNombre,+fmt2(x.subtotal),+fmt2(x.descuentoProductos),+fmt2(x.descuentoTotal),x.descuentoTipo,+fmt2(x.total),x.estado,x.tipoPago||'EFECTIVO',+fmt2(x.valorEfectivo),+fmt2(x.valorTransferencia),+fmt2(x.valorAddi)]);
   const tot = v.filter(x=>x.estado==='COMPLETADA').reduce((s,x)=>s+x.total,0);
-  rs.push(['','','','','','','','','','',+fmt2(tot),'TOTAL','','','']);
+  rs.push(['','','','','','','','','','',+fmt2(tot),'TOTAL','','','','']);
   const vc = v.filter(x=>x.estado==='COMPLETADA');
   return { hs, rs, total:v.length, completadas:vc.length, ingresos:+fmt2(tot) };
 }
@@ -259,9 +260,9 @@ async function dVendedores() {
   const vc=v.filter(x=>x.estado==='COMPLETADA');
   const uv=u.filter(x=>x.rol==='VENDEDOR');
   const mp={};
-  for (const x of vc) { if(!mp[x.vendedorId]) mp[x.vendedorId]={v:0,t:0,e:0,tr:0}; mp[x.vendedorId].v++; mp[x.vendedorId].t+=x.total; mp[x.vendedorId].e+=x.valorEfectivo||0; mp[x.vendedorId].tr+=x.valorTransferencia||0; }
-  const hs=['ID','Nombre','Rol','Activo','N° Ventas','Total Vendido','Efectivo','Transferencia'];
-  const rs=uv.map(x=>{ const s=mp[x.id]||{v:0,t:0,e:0,tr:0}; return [x.id,x.nombreCompleto,x.rol,x.activo?'Sí':'No',s.v,+fmt2(s.t),+fmt2(s.e),+fmt2(s.tr)]; });
+  for (const x of vc) { if(!mp[x.vendedorId]) mp[x.vendedorId]={v:0,t:0,e:0,tr:0,ad:0}; mp[x.vendedorId].v++; mp[x.vendedorId].t+=x.total; mp[x.vendedorId].e+=x.valorEfectivo||0; mp[x.vendedorId].tr+=x.valorTransferencia||0; mp[x.vendedorId].ad+=x.valorAddi||0; }
+  const hs=['ID','Nombre','Rol','Activo','N° Ventas','Total Vendido','Efectivo','Transferencia','Addi'];
+  const rs=uv.map(x=>{ const s=mp[x.id]||{v:0,t:0,e:0,tr:0,ad:0}; return [x.id,x.nombreCompleto,x.rol,x.activo?'Sí':'No',s.v,+fmt2(s.t),+fmt2(s.e),+fmt2(s.tr),+fmt2(s.ad)]; });
   return { hs, rs };
 }
 
@@ -293,10 +294,10 @@ async function dReportesMes() {
   const [v,g]=await Promise.all([listarVentas(),listarGastos()]);
   const vc=v.filter(x=>x.estado==='COMPLETADA');
   const mp={};
-  for (const x of vc) { const m=x.fecha?.slice(0,7)||'S/F'; if(!mp[m]) mp[m]={v:0,i:0,g:0,e:0,tr:0}; mp[m].v++; mp[m].i+=x.total; mp[m].e+=x.valorEfectivo||0; mp[m].tr+=x.valorTransferencia||0; }
-  for (const x of g)  { const m=x.fecha?.slice(0,7)||'S/F'; if(!mp[m]) mp[m]={v:0,i:0,g:0,e:0,tr:0}; mp[m].g+=x.valor; }
-  const hs=['Mes','N° Ventas','Ingresos','Gastos','Utilidad','Efectivo','Transferencia'];
-  const rs=Object.entries(mp).sort().map(([m,d])=>[m,d.v,+fmt2(d.i),+fmt2(d.g),+fmt2(d.i-d.g),+fmt2(d.e),+fmt2(d.tr)]);
+  for (const x of vc) { const m=x.fecha?.slice(0,7)||'S/F'; if(!mp[m]) mp[m]={v:0,i:0,g:0,e:0,tr:0,ad:0}; mp[m].v++; mp[m].i+=x.total; mp[m].e+=x.valorEfectivo||0; mp[m].tr+=x.valorTransferencia||0; mp[m].ad+=x.valorAddi||0; }
+  for (const x of g)  { const m=x.fecha?.slice(0,7)||'S/F'; if(!mp[m]) mp[m]={v:0,i:0,g:0,e:0,tr:0,ad:0}; mp[m].g+=x.valor; }
+  const hs=['Mes','N° Ventas','Ingresos','Gastos','Utilidad','Efectivo','Transferencia','Addi'];
+  const rs=Object.entries(mp).sort().map(([m,d])=>[m,d.v,+fmt2(d.i),+fmt2(d.g),+fmt2(d.i-d.g),+fmt2(d.e),+fmt2(d.tr),+fmt2(d.ad)]);
   return { hs, rs };
 }
 

@@ -23,6 +23,7 @@ export default async function HistorialPage({ searchParams }) {
   const totalVentas        = lista.reduce((s, v) => s + v.total, 0);
   const totalEfectivo      = lista.reduce((s, v) => s + (v.valorEfectivo || 0), 0);
   const totalTransferencia = lista.reduce((s, v) => s + (v.valorTransferencia || 0), 0);
+  const totalAddi          = lista.reduce((s, v) => s + (v.valorAddi || 0), 0);
 
   let resumenVend = [], totalGeneralDia = 0, vendedoresSin = [], fechaResumen = '';
   if (admin) {
@@ -49,6 +50,7 @@ export default async function HistorialPage({ searchParams }) {
       totalVentas={totalVentas}
       totalEfectivo={totalEfectivo}
       totalTransferencia={totalTransferencia}
+      totalAddi={totalAddi}
       resumenVendedores={resumenVend}
       totalGeneralDia={totalGeneralDia}
       vendedoresSinVentas={vendedoresSin}

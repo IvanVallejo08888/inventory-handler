@@ -45,6 +45,7 @@ export async function GET(request) {
       tipoPago:            venta.tipoPago,
       valorEfectivo:       venta.valorEfectivo,
       valorTransferencia:  venta.valorTransferencia,
+      valorAddi:           venta.valorAddi,
       items:               detalles,
     });
   }
@@ -57,6 +58,7 @@ export async function GET(request) {
     const totalVentas        = lista.reduce((s, v) => s + v.total, 0);
     const totalEfectivo      = lista.reduce((s, v) => s + (v.valorEfectivo || 0), 0);
     const totalTransferencia = lista.reduce((s, v) => s + (v.valorTransferencia || 0), 0);
+    const totalAddi          = lista.reduce((s, v) => s + (v.valorAddi || 0), 0);
 
     let resumenVendedores = [], totalGeneralDia = 0, vendedoresSin = [], fechaResumen = '';
     if (admin) {
@@ -71,7 +73,7 @@ export async function GET(request) {
     }
 
     return NextResponse.json({
-      ventas: lista, periodo, totalVentas, totalEfectivo, totalTransferencia,
+      ventas: lista, periodo, totalVentas, totalEfectivo, totalTransferencia, totalAddi,
       esAdmin: admin, resumenVendedores, totalGeneralDia, vendedoresSinVentas: vendedoresSin, fechaResumen,
     });
   }
@@ -113,9 +115,11 @@ export async function POST(request) {
 
       const total = Math.max(0, subtotalBruto - descTotal);
 
-      let vEfectivo = total, vTransferencia = 0;
+      let vEfectivo = total, vTransferencia = 0, vAddi = 0;
       if (tipoPago === 'TRANSFERENCIA') {
         vEfectivo = 0; vTransferencia = total;
+      } else if (tipoPago === 'ADDI') {
+        vEfectivo = 0; vAddi = total;
       } else if (tipoPago === 'MIXTO') {
         vEfectivo      = parseFloat(valorEfectivo)      || 0;
         vTransferencia = parseFloat(valorTransferencia) || 0;
@@ -132,6 +136,7 @@ export async function POST(request) {
         tipoPago:           tipoPago || 'EFECTIVO',
         valorEfectivo:      vEfectivo,
         valorTransferencia: vTransferencia,
+        valorAddi:          vAddi,
       };
 
       const res = await crearVenta(ventaData, detalles);

@@ -9,6 +9,7 @@ import {
   productosMasVendidosMes, top3VendedoresMes, top3ProductosMes,
   listarVentas, totalEfectivoHoy, totalTransferenciaHoy,
   totalEfectivoMes, totalTransferenciaMes,
+  totalAddiHoy, totalAddiMes,
 } from '@/lib/fileManagerVentas';
 import { listarProductos }   from '@/lib/fileManagerProductos';
 import { totalGastosMes, gastosPorCategoria, listarGastos } from '@/lib/fileManagerGastos';
@@ -38,7 +39,7 @@ export default async function DashboardPage() {
 
   if (admin) {
     const [usuarios, productos, gastosRecientes,
-           vpd, t3Vend, t3Prod, gastosCat, efHoy, trHoy, efMes, trMes, ultimasVentas] = await Promise.all([
+           vpd, t3Vend, t3Prod, gastosCat, efHoy, trHoy, efMes, trMes, adHoy, adMes, ultimasVentas] = await Promise.all([
       leerUsuarios(),
       listarProductos(),
       listarGastos().then(g => g.slice(0, 5)),
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
       totalTransferenciaHoy(),
       totalEfectivoMes(),
       totalTransferenciaMes(),
+      totalAddiHoy(),
+      totalAddiMes(),
       Promise.resolve(todasVentas.slice(0, 5)),
     ]);
 
@@ -86,6 +89,8 @@ export default async function DashboardPage() {
         transferenciaHoy={trHoy}
         efectivoMes={efMes}
         transferenciaMes={trMes}
+        addiHoy={adHoy}
+        addiMes={adMes}
       />
     );
   }

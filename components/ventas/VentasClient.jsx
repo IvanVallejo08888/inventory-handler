@@ -61,6 +61,7 @@ export default function VentasClient({ productos, sesion }) {
   function calcPago() {
     if (pagoTipo === 'EFECTIVO')      return { vEf: totalFinal, vTr: 0 };
     if (pagoTipo === 'TRANSFERENCIA') return { vEf: 0, vTr: totalFinal };
+    if (pagoTipo === 'ADDI')          return { vEf: 0, vTr: 0 };
     if (mixtoMode === 'pct') {
       const pct = parseFloat(mixtoEf) || 0;
       return { vEf: totalFinal * (pct / 100), vTr: totalFinal * ((100 - pct) / 100) };
@@ -169,7 +170,7 @@ export default function VentasClient({ productos, sesion }) {
     finally   { setCargando(false); }
   }
 
-  const iconosPago = { EFECTIVO: '💵 Efectivo', TRANSFERENCIA: '🏦 Transferencia', MIXTO: '💳 Mixto' };
+  const iconosPago = { EFECTIVO: '💵 Efectivo', TRANSFERENCIA: '🏦 Transferencia', MIXTO: '💳 Mixto', ADDI: '📠 Addi' };
   const { vEf: pvEf, vTr: pvTr } = calcPago();
 
   // Contenido del carrito (reutilizado en sidebar y drawer)
@@ -297,7 +298,7 @@ export default function VentasClient({ productos, sesion }) {
           {pagoAbierto && (
             <div style={{ padding:14, background:'rgba(0,0,0,.15)' }}>
               <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-                {[['EFECTIVO','💵 Efectivo'],['TRANSFERENCIA','🏦 Transf.'],['MIXTO','💳 Mixto']].map(([tipo, lbl]) => (
+                {[['EFECTIVO','💵 Efectivo'],['TRANSFERENCIA','🏦 Transf.'],['MIXTO','💳 Mixto'],['ADDI','📠 Addi']].map(([tipo, lbl]) => (
                   <div key={tipo} onClick={() => setPagoTipo(tipo)} style={{
                     flex:1, padding:'7px 4px', textAlign:'center', fontSize:12, fontWeight:600,
                     borderRadius:'var(--radius-sm)', cursor:'pointer',
