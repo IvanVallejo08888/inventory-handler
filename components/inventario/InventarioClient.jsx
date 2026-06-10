@@ -30,6 +30,8 @@ const COLORES = [
 const FORM_EDIT_VACIO    = { nombre:'', precio:'', cantidad:'', estado:'ACTIVO' };
 const FORM_AGREGAR_VACIO = { nombre:'', tipo:'', subTipo:'', precio:'', estado:'ACTIVO', tallas:{}, colores:[], cantidad: 0 };
 
+const PAGE_SIZE = 20;
+
 export default function InventarioClient({
   lista, totalProductos, productosActivos,
   totalUnidades, valorInventario, buscar, filtroEstado,
@@ -50,6 +52,14 @@ export default function InventarioClient({
   // Formularios
   const [form,        setFormState]    = useState(FORM_EDIT_VACIO);
   const [formAgregar, setFormAgregar]  = useState(FORM_AGREGAR_VACIO);
+
+  // Carga progresiva de la lista
+  const [visibles, setVisibles] = useState(PAGE_SIZE);
+
+  useEffect(() => { setVisibles(PAGE_SIZE); }, [buscar, filtroEstado]);
+
+  const listaVisible = lista.slice(0, visibles);
+  const hayMas       = visibles < lista.length;
 
   function set(k, v) { setFormState(f => ({ ...f, [k]: v })); }
 
@@ -254,7 +264,7 @@ export default function InventarioClient({
               </tr>
             </thead>
             <tbody>
-              {lista.map(p => (
+              {listaVisible.map(p => (
                 <tr key={p.id}>
                   <td><span className="codigo-badge">{p.codigo}</span></td>
                   <td>{p.nombre}</td>
@@ -286,6 +296,18 @@ export default function InventarioClient({
             </tbody>
           </table>
         </div>
+
+        {hayMas && (
+          <div style={{ display:'flex', justifyContent:'center', padding:'1rem' }}>
+            <button
+              className="btn btn-secondary"
+              style={{ padding:'0.5rem 1.2rem', fontSize:'0.85rem' }}
+              onClick={() => setVisibles(v => v + PAGE_SIZE)}
+            >
+              Mostrar 20 más
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Modal Agregar ──────────────────────────────────────── */}
