@@ -5,13 +5,14 @@ import { listarVentas, listarTodosDetalles }    from '@/lib/fileManagerVentas';
 import { listarGastos }                         from '@/lib/fileManagerGastos';
 import { leerUsuarios }                         from '@/lib/fileManager';
 import { getDatosReportes }                     from '@/lib/fileManagerReportes';
+import { fechaHoyColombia, formatoColombia }    from '@/lib/fechaColombia';
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
-function hoy()        { return new Date().toISOString().slice(0, 10); }
+function hoy()        { return fechaHoyColombia(); }
 function mesActual()  { return hoy().slice(0, 7); }
 function fmt2(n)      { return Number(n || 0).toFixed(2); }
 function rb(hex)      { return 'FF' + hex.replace('#', '').toUpperCase(); }   // RGBA con opacidad plena
-function fmtTS()      { return new Date().toLocaleString('es-CO', { dateStyle:'long', timeStyle:'short' }); }
+function fmtTS()      { return formatoColombia(new Date(), { dateStyle:'long', timeStyle:'short' }); }
 function fmtCOP(n)    { return '$' + Number(n||0).toLocaleString('es-CO', { minimumFractionDigits:2 }); }
 
 // ── Paleta corporativa por tipo ───────────────────────────────────────────────
@@ -308,7 +309,7 @@ async function dResumen() {
   const m=mesActual(); const vm=vc.filter(x=>x.fecha?.startsWith(m));
   const hs=['Concepto','Valor'];
   const rs=[
-    [`Reporte generado: ${new Date().toLocaleString('es-CO')}`,''],
+    [`Reporte generado: ${formatoColombia(new Date(), { dateStyle:'short', timeStyle:'medium' })}`,''],
     ['',''],['HISTÓRICO GENERAL',''],
     ['Total ventas completadas',vc.length],
     ['Total ingresos',+fmt2(tv)],['Total gastos',+fmt2(tg)],['Utilidad neta',+fmt2(tv-tg)],
@@ -429,7 +430,7 @@ async function portada(wb, tipo, sesion) {
   ws.getRow(ir+2).height = 18;
   mc(ir+2,2,ir+2,5);
   const fc = ws.getCell(ir+2,2);
-  fc.value     = `Sistema ÁREA 17  ·  Reporte generado automáticamente  ·  ${new Date().getFullYear()}`;
+  fc.value     = `Sistema ÁREA 17  ·  Reporte generado automáticamente  ·  ${hoy().slice(0, 4)}`;
   fc.font      = { name:'Calibri', size:8, italic:true, color:{ argb:'FF9E9E9E' } };
   fc.alignment = align('center');
 
@@ -562,8 +563,7 @@ export async function GET(request) {
     const labels = { inventario:'Inventario', ventas:'Ventas', gastos:'Gastos', usuarios:'Usuarios', completo:'Reporte_Completo', maestro:'Reporte_Maestro' };
     try {
       const buf  = await construirLibro(tipo, sesion);
-      const d    = new Date();
-      const suf  = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      const suf  = hoy().replace(/-/g, '');
       const name = `Area17_${labels[tipo]||tipo}_${suf}.xlsx`;
       return new NextResponse(buf, {
         headers: {

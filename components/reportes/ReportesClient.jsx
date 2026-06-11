@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
+import { fechaHoyColombia } from '@/lib/fechaColombia';
 
 const fmt = n => Number(n||0).toLocaleString('es-CO', { minimumFractionDigits:0, maximumFractionDigits:0 });
 
@@ -177,7 +178,7 @@ export default function ReportesClient({
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href = url; a.download = `Area17_${tipo}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      a.href = url; a.download = `Area17_${tipo}_${fechaHoyColombia()}.xlsx`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
       mostrarToast('✅ Excel descargado exitosamente', 'ok');

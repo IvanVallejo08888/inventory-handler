@@ -5,6 +5,7 @@ import {
   resumenVendedoresDia, totalGeneralVendedoresDia, vendedoresSinVentas,
 } from '@/lib/fileManagerVentas';
 import { leerUsuarios } from '@/lib/fileManager';
+import { fechaHoyColombia } from '@/lib/fechaColombia';
 import HistorialClient from '@/components/ventas/HistorialClient';
 
 export const metadata = { title: 'Historial de Ventas — Área 17' };
@@ -28,7 +29,7 @@ export default async function HistorialPage({ searchParams }) {
   let resumenVend = [], totalGeneralDia = 0, vendedoresSin = [], fechaResumen = '';
   if (admin) {
     const fecha = params.fecha || '';
-    fechaResumen    = fecha || new Date().toISOString().slice(0, 10);
+    fechaResumen    = fecha || fechaHoyColombia();
     const [resumen, total, usuarios] = await Promise.all([
       resumenVendedoresDia(fecha),
       totalGeneralVendedoresDia(fecha),

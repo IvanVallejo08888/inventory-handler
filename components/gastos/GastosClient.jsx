@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation';
 import PageHeader    from '@/components/ui/PageHeader';
 import Alert        from '@/components/ui/Alert';
 import ProductModal from '@/components/inventario/ProductModal';
+import { fechaHoyColombia } from '@/lib/fechaColombia';
 
 const fmt = v => `$${Number(v || 0).toLocaleString('es-CO', { minimumFractionDigits:0, maximumFractionDigits:0 })}`;
-const HOY = () => new Date().toISOString().slice(0, 10);
+const HOY = () => fechaHoyColombia();
 
 const CATS = [
   { key:'SERVICIO',     label:'Servicio',     icono:'💼', cls:'c-serv'   },

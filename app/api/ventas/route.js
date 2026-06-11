@@ -8,6 +8,7 @@ import {
 } from '@/lib/fileManagerVentas';
 import { listarProductos } from '@/lib/fileManagerProductos';
 import { leerUsuarios }    from '@/lib/fileManager';
+import { fechaHoyColombia } from '@/lib/fechaColombia';
 
 /* ── GET ──────────────────────────────────────────────────────────────── */
 export async function GET(request) {
@@ -63,7 +64,7 @@ export async function GET(request) {
     let resumenVendedores = [], totalGeneralDia = 0, vendedoresSin = [], fechaResumen = '';
     if (admin) {
       const fecha = searchParams.get('fecha') || '';
-      fechaResumen      = fecha || new Date().toISOString().slice(0, 10);
+      fechaResumen      = fecha || fechaHoyColombia();
       resumenVendedores = await resumenVendedoresDia(fecha);
       totalGeneralDia   = await totalGeneralVendedoresDia(fecha);
       const nombresVendedores = (await leerUsuarios())
