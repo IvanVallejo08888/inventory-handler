@@ -338,7 +338,7 @@ export default function HistorialClient({
             <thead>
               <tr>
                 <th>Código</th><th>Fecha</th><th>Hora</th><th>Vendedor</th>
-                <th>Subtotal</th><th>Descuento</th><th>Total</th>
+                <th>Subtotal</th><th>Descuento</th><th>Costo Adic.</th><th>Total</th>
                 <th>Pago</th><th>Estado</th><th>Acciones</th>
               </tr>
             </thead>
@@ -353,6 +353,7 @@ export default function HistorialClient({
                     <td style={{ fontWeight:600 }}>👤 {v.vendedorNombre}</td>
                     <td style={{ color:'var(--text-secondary)', fontSize:'0.85rem' }}>${fmt2(v.subtotal)}</td>
                     <td style={{ color:'#e53e3e', fontSize:'0.85rem' }}>{totalDesc > 0 ? `-$${fmt2(totalDesc)}` : '—'}</td>
+                    <td style={{ color:'#fb923c', fontSize:'0.85rem' }}>{(v.costoAdicional || 0) > 0 ? `+$${fmt2(v.costoAdicional)}` : '—'}</td>
                     <td style={{ fontSize:'1rem', fontWeight:800, color:'var(--primary)', fontFamily:"'Rajdhani',sans-serif" }}>${fmt2(v.total)}</td>
                     <td>{BADGE_PAGO[v.tipoPago] || BADGE_PAGO.EFECTIVO}</td>
                     <td>
@@ -377,7 +378,7 @@ export default function HistorialClient({
                 );
               })}
               {!ventasFiltradas.length && (
-                <tr><td colSpan={10}>
+                <tr><td colSpan={11}>
                   <div style={{ textAlign:'center', padding:'60px 20px', color:'var(--text-muted)' }}>
                     <div style={{ fontSize:'3rem', opacity:.5, marginBottom:12 }}>📭</div>
                     <p>Sin ventas registradas en este período</p>
@@ -501,6 +502,10 @@ export default function HistorialClient({
                   ['Subtotal bruto', `$${fmt2(factura.dataPago?.subtotal || factura.total)}`],
                   factura.dataPago?.descuentoProductos > 0 && ['Desc. productos', `-$${fmt2(factura.dataPago.descuentoProductos)}`],
                   factura.dataPago?.descuentoTotal > 0 && ['Desc. general', `-$${fmt2(factura.dataPago.descuentoTotal)}`],
+                  factura.dataPago?.costoAdicional > 0 && [
+                    `Costo adicional${factura.dataPago.costoAdicionalTipo === 'PORCENTAJE' ? ' (%)' : factura.dataPago.costoAdicionalTipo === 'FIJO' ? ' (fijo)' : ''}`,
+                    `+$${fmt2(factura.dataPago.costoAdicional)}`,
+                  ],
                   ['IVA (0%)', '$0.00'],
                 ].filter(Boolean).map(([lbl, val], i) => (
                   <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 16px', fontSize:'0.88rem', borderBottom:'1px solid #e5f0e0' }}>

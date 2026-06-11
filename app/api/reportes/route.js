@@ -102,7 +102,7 @@ function esMonetaria(hdr) {
   return h.includes('precio')    || h.includes('total')    || h.includes('valor')  ||
          h.includes('subtotal')  || h.includes('desc')     || h.includes('ingreso') ||
          h.includes('gasto')     || h.includes('efectivo') || h.includes('transfer') ||
-         h.includes('addi')      ||
+         h.includes('addi')      || h.includes('costo')    ||
          h.includes('utilidad')  || h.includes('vendido')  || h.includes('balance');
 }
 
@@ -197,10 +197,10 @@ async function dInventario() {
 
 async function dVentas() {
   const v  = await listarVentas();
-  const hs = ['ID','Código','Fecha','Hora','Vendedor ID','Vendedor','Subtotal','Desc. Productos','Desc. Total','Tipo Desc.','Total','Estado','Tipo Pago','Efectivo','Transferencia','Addi'];
-  const rs = v.map(x=>[x.id,x.codigo,x.fecha,x.hora,x.vendedorId,x.vendedorNombre,+fmt2(x.subtotal),+fmt2(x.descuentoProductos),+fmt2(x.descuentoTotal),x.descuentoTipo,+fmt2(x.total),x.estado,x.tipoPago||'EFECTIVO',+fmt2(x.valorEfectivo),+fmt2(x.valorTransferencia),+fmt2(x.valorAddi)]);
+  const hs = ['ID','Código','Fecha','Hora','Vendedor ID','Vendedor','Subtotal','Desc. Productos','Desc. Total','Tipo Desc.','Costo Adicional','Tipo Costo Adic.','Total','Estado','Tipo Pago','Efectivo','Transferencia','Addi'];
+  const rs = v.map(x=>[x.id,x.codigo,x.fecha,x.hora,x.vendedorId,x.vendedorNombre,+fmt2(x.subtotal),+fmt2(x.descuentoProductos),+fmt2(x.descuentoTotal),x.descuentoTipo,+fmt2(x.costoAdicional),x.costoAdicionalTipo,+fmt2(x.total),x.estado,x.tipoPago||'EFECTIVO',+fmt2(x.valorEfectivo),+fmt2(x.valorTransferencia),+fmt2(x.valorAddi)]);
   const tot = v.filter(x=>x.estado==='COMPLETADA').reduce((s,x)=>s+x.total,0);
-  rs.push(['','','','','','','','','','',+fmt2(tot),'TOTAL','','','','']);
+  rs.push(['','','','','','','','','','','','',+fmt2(tot),'TOTAL','','','','']);
   const vc = v.filter(x=>x.estado==='COMPLETADA');
   return { hs, rs, total:v.length, completadas:vc.length, ingresos:+fmt2(tot) };
 }

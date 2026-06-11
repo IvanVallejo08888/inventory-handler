@@ -17,6 +17,10 @@ export default function VentasClient({ productos, sesion }) {
   const [descTipo,    setDescTipo]    = useState('PORCENTAJE');
   const [descValor,   setDescValor]   = useState('');
   const [descChip,    setDescChip]    = useState(null);
+  const [costoAbierto, setCostoAbierto] = useState(false);
+  const [costoTipo,    setCostoTipo]    = useState('PORCENTAJE');
+  const [costoValor,   setCostoValor]   = useState('');
+  const [costoChip,    setCostoChip]    = useState(null);
   const [pagoTipo,    setPagoTipo]    = useState('EFECTIVO');
   const [mixtoMode,   setMixtoMode]   = useState('pct');
   const [mixtoEf,     setMixtoEf]     = useState('');
@@ -56,7 +60,14 @@ export default function VentasClient({ productos, sesion }) {
     return descTipo === 'PORCENTAJE' ? subtotal * (v / 100) : v;
   }
   const montoDesc  = Math.min(calcDescuento(), subtotal);
-  const totalFinal = Math.max(0, subtotal - montoDesc);
+
+  function calcCostoAdicional() {
+    const v = parseFloat(costoValor) || 0;
+    if (v <= 0) return 0;
+    return costoTipo === 'PORCENTAJE' ? subtotal * (v / 100) : v;
+  }
+  const montoCosto = calcCostoAdicional();
+  const totalFinal = Math.max(0, subtotal - montoDesc + montoCosto);
 
   function calcPago() {
     if (pagoTipo === 'EFECTIVO')      return { vEf: totalFinal, vTr: 0 };
@@ -126,6 +137,11 @@ export default function VentasClient({ productos, sesion }) {
   function onDescTipo(tipo) { setDescTipo(tipo); setDescValor(''); setDescChip(null); }
   function onDescChip(val)  { setDescChip(val); setDescValor(String(val)); }
 
+  // Costo adicional helpers
+  const chipsCostoPct = [5, 10, 15, 20, 25];
+  function onCostoTipo(tipo) { setCostoTipo(tipo); setCostoValor(''); setCostoChip(null); }
+  function onCostoChip(val)  { setCostoChip(val); setCostoValor(String(val)); }
+
   // Mixto helpers
   function onMixtoEf(val) {
     setMixtoEf(val);
@@ -154,7 +170,10 @@ export default function VentasClient({ productos, sesion }) {
         body: JSON.stringify({
           accion: 'crear', detalles,
           descuentoGlobal: parseFloat(descValor) || 0,
-          descuentoGlobalTipo: descTipo, tipoPago: pagoTipo,
+          descuentoGlobalTipo: descTipo,
+          costoAdicionalValor: parseFloat(costoValor) || 0,
+          costoAdicionalTipo: costoTipo,
+          tipoPago: pagoTipo,
           valorEfectivo: vEf, valorTransferencia: vTr,
         }),
       });
@@ -163,6 +182,7 @@ export default function VentasClient({ productos, sesion }) {
       else {
         setModalOpen(false); setCarritoAbierto(false);
         setCarrito({}); setDescValor(''); setDescChip(null);
+        setCostoValor(''); setCostoChip(null);
         setMsg(`✅ Venta ${data.codigo} registrada exitosamente.`);
         router.refresh();
       }
@@ -284,6 +304,66 @@ export default function VentasClient({ productos, sesion }) {
           )}
         </div>
 
+        {/* Costo adicional */}
+        <div style={{ border:`1px solid ${costoValor && parseFloat(costoValor) > 0 ? 'rgba(251,146,60,0.5)' : 'var(--border-color)'}`, borderRadius:'var(--radius)', marginBottom:14, overflow:'hidden', transition:'border-color .2s' }}>
+          <div onClick={() => setCostoAbierto(v => !v)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', cursor:'pointer', background:'var(--bg-input)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>
+              💸 Costo adicional
+              {costoValor && parseFloat(costoValor) > 0 && (
+                <span style={{ fontSize:10, background:'rgba(251,146,60,.15)', color:'#fb923c', border:'1px solid rgba(251,146,60,.3)', borderRadius:4, padding:'1px 7px', fontWeight:800 }}>ACTIVO</span>
+              )}
+            </div>
+            <span style={{ transform: costoAbierto ? 'rotate(180deg)' : 'none', transition:'transform .2s', fontSize:11, color:'var(--text-muted)' }}>▼</span>
+          </div>
+          {costoAbierto && (
+            <div style={{ padding:14, background:'rgba(251,146,60,.03)', borderTop:'1px solid var(--border-color)' }}>
+              <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+                {[['PORCENTAJE','% Porcentaje'],['FIJO','$ Valor fijo']].map(([tipo, lbl]) => (
+                  <div key={tipo} onClick={() => onCostoTipo(tipo)} style={{
+                    flex:1, padding:'7px 0', textAlign:'center', border:'1px solid', borderRadius:'var(--radius-sm)',
+                    fontSize:12, fontWeight:700, cursor:'pointer',
+                    background: costoTipo === tipo ? 'rgba(251,146,60,.15)' : 'var(--bg-input)',
+                    borderColor: costoTipo === tipo ? 'rgba(251,146,60,.5)' : 'var(--border-color)',
+                    color: costoTipo === tipo ? '#fb923c' : 'var(--text-muted)',
+                  }}>{lbl}</div>
+                ))}
+              </div>
+              {costoTipo === 'PORCENTAJE' && (
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+                  {chipsCostoPct.map(v => (
+                    <span key={v} onClick={() => onCostoChip(v)} style={{
+                      padding:'4px 12px', border:'1px solid', borderRadius:16, fontSize:11, fontWeight:700, cursor:'pointer',
+                      background: costoChip === v ? 'rgba(251,146,60,.15)' : 'var(--bg-input)',
+                      borderColor: costoChip === v ? 'rgba(251,146,60,.5)' : 'var(--border-color)',
+                      color: costoChip === v ? '#fb923c' : 'var(--text-secondary)',
+                    }}>
+                      {v}%
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ position:'relative', marginBottom:10 }}>
+                <input type="number" min="0" step="0.01" value={costoValor}
+                  onChange={e => { setCostoChip(null); setCostoValor(e.target.value); }}
+                  placeholder="Valor personalizado…"
+                  style={{ width:'100%', boxSizing:'border-box', padding:'9px 40px 9px 14px', background:'var(--bg-input)', border:'1px solid var(--border-color)', borderRadius:'var(--radius-sm)', color:'var(--text-primary)', fontSize:14, fontWeight:700, outline:'none' }}
+                />
+                <span style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', fontSize:13, fontWeight:800, color:'#fb923c', pointerEvents:'none' }}>
+                  {costoTipo === 'PORCENTAJE' ? '%' : '$'}
+                </span>
+              </div>
+              {costoValor && parseFloat(costoValor) > 0 && subtotal > 0 && (
+                <p style={{ fontSize:12, color:'#fb923c', fontWeight:700, textAlign:'center' }}>
+                  Costo adicional: +${fmt(montoCosto)} {costoTipo === 'PORCENTAJE' && `(${costoValor}% sobre $${fmt(subtotal)})`}
+                </p>
+              )}
+              <button onClick={() => { setCostoValor(''); setCostoChip(null); }} className="btn btn-secondary" style={{ width:'100%', fontSize:12, padding:6, marginTop:10 }}>
+                ✕ Quitar costo adicional
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Método de pago */}
         <div style={{ border:`1px solid ${pagoTipo !== 'EFECTIVO' ? 'rgba(59,130,246,0.55)' : 'var(--border-color)'}`, borderRadius:'var(--radius)', overflow:'hidden', transition:'border-color .25s', marginBottom:14 }}>
           <div onClick={() => setPagoAbierto(v => !v)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', cursor:'pointer', background:'var(--bg-card)' }}>
@@ -363,6 +443,12 @@ export default function VentasClient({ productos, sesion }) {
             <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:'#fbbf24', marginBottom:5 }}>
               <span>{descTipo === 'PORCENTAJE' ? `Descuento (${descValor}%):` : 'Descuento fijo:'}</span>
               <span style={{ color:'#f87171', fontWeight:800 }}>-${fmt(montoDesc)}</span>
+            </div>
+          )}
+          {montoCosto > 0 && (
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:'#fb923c', marginBottom:5 }}>
+              <span>{costoTipo === 'PORCENTAJE' ? `Costo adicional (${costoValor}%):` : 'Costo adicional fijo:'}</span>
+              <span style={{ color:'#fb923c', fontWeight:800 }}>+${fmt(montoCosto)}</span>
             </div>
           )}
           <hr style={{ border:'none', borderTop:'1px dashed rgba(255,255,255,0.1)', margin:'8px 0' }} />
@@ -584,9 +670,11 @@ export default function VentasClient({ productos, sesion }) {
             <div style={{ marginTop:12, padding:'12px 14px', background:'rgba(45,206,107,0.04)', borderRadius:'var(--radius-sm)', border:'1px solid rgba(45,206,107,0.1)' }}>
               {[['Subtotal', `$${fmt(subtotal)}`]].concat(
                 montoDesc > 0 ? [[descTipo === 'PORCENTAJE' ? `Descuento (${descValor}%)` : 'Descuento fijo', `-$${fmt(montoDesc)}`]] : []
+              ).concat(
+                montoCosto > 0 ? [[costoTipo === 'PORCENTAJE' ? `Costo adicional (${costoValor}%)` : 'Costo adicional fijo', `+$${fmt(montoCosto)}`]] : []
               ).map(([l, v]) => (
                 <div key={l} style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:'var(--text-secondary)', marginBottom:5 }}>
-                  <span>{l}</span><span style={{ color: l.startsWith('Desc') ? '#f87171' : undefined }}>{v}</span>
+                  <span>{l}</span><span style={{ color: l.startsWith('Desc') ? '#f87171' : l.startsWith('Costo') ? '#fb923c' : undefined }}>{v}</span>
                 </div>
               ))}
               <div style={{ display:'flex', justifyContent:'space-between', fontSize:20, fontWeight:900, color:'var(--primary)', fontFamily:"'Rajdhani',sans-serif", marginTop:8, paddingTop:8, borderTop:'1px solid var(--border-color)' }}>

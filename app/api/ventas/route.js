@@ -42,6 +42,8 @@ export async function GET(request) {
       descuentoProductos:  venta.descuentoProductos,
       descuentoTotal:      venta.descuentoTotal,
       descuentoTipo:       venta.descuentoTipo,
+      costoAdicional:      venta.costoAdicional,
+      costoAdicionalTipo:  venta.costoAdicionalTipo,
       total:               venta.total,
       tipoPago:            venta.tipoPago,
       valorEfectivo:       venta.valorEfectivo,
@@ -92,7 +94,7 @@ export async function POST(request) {
     const accion = body.accion;
 
     if (accion === 'crear') {
-      const { detalles, descuentoGlobal, descuentoGlobalTipo, tipoPago, valorEfectivo, valorTransferencia } = body;
+      const { detalles, descuentoGlobal, descuentoGlobalTipo, costoAdicionalValor, costoAdicionalTipo, tipoPago, valorEfectivo, valorTransferencia } = body;
 
       if (!detalles?.length) return NextResponse.json({ error: 'Agrega al menos un producto.' }, { status: 400 });
 
@@ -114,7 +116,18 @@ export async function POST(request) {
         if (descTotal >= subtotalBruto) return NextResponse.json({ error: 'El descuento no puede superar el total.' }, { status: 400 });
       }
 
-      const total = Math.max(0, subtotalBruto - descTotal);
+      let costoMonto = 0;
+      if (costoAdicionalValor > 0) {
+        if (costoAdicionalTipo !== 'PORCENTAJE' && costoAdicionalTipo !== 'FIJO')
+          return NextResponse.json({ error: 'Tipo de costo adicional inválido.' }, { status: 400 });
+        costoMonto = costoAdicionalTipo === 'PORCENTAJE'
+          ? subtotalBruto * (costoAdicionalValor / 100)
+          : costoAdicionalValor;
+      } else if (costoAdicionalValor < 0) {
+        return NextResponse.json({ error: 'El costo adicional no puede ser negativo.' }, { status: 400 });
+      }
+
+      const total = Math.max(0, subtotalBruto - descTotal + costoMonto);
 
       let vEfectivo = total, vTransferencia = 0, vAddi = 0;
       if (tipoPago === 'TRANSFERENCIA') {
@@ -133,6 +146,8 @@ export async function POST(request) {
         vendedorNombre:     sesion.nombreCompleto,
         descuentoTotal:     descTotal,
         descuentoTipo:      descuentoGlobal > 0 ? (descuentoGlobalTipo || 'FIJO') : 'NINGUNO',
+        costoAdicional:     costoMonto,
+        costoAdicionalTipo: costoMonto > 0 ? (costoAdicionalTipo || 'FIJO') : 'NINGUNO',
         total,
         tipoPago:           tipoPago || 'EFECTIVO',
         valorEfectivo:      vEfectivo,
