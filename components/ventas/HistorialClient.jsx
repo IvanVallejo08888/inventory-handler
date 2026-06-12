@@ -10,12 +10,39 @@ const fmt2 = n => Number(n || 0).toLocaleString('es-CO', { minimumFractionDigits
 
 const PERIODOS = [['HOY','📅 Hoy'],['SEMANA','📆 Esta Semana'],['MES','🗓️ Este Mes'],['TODO','📊 Todos']];
 
-const BADGE_PAGO = {
-  EFECTIVO:      <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(74,222,128,.15)', color:'#4ade80', border:'1px solid rgba(74,222,128,.3)' }}>💵 Efectivo</span>,
-  TRANSFERENCIA: <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(96,165,250,.15)', color:'#60a5fa', border:'1px solid rgba(96,165,250,.3)' }}>🏦 Transf.</span>,
-  MIXTO:         <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(251,191,36,.15)',  color:'#fbbf24', border:'1px solid rgba(251,191,36,.3)'  }}>💳 Mixto</span>,
-  ADDI:          <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(192,132,252,.15)', color:'#c084fc', border:'1px solid rgba(192,132,252,.3)' }}>📠 Addi</span>,
+const BADGE_STYLE = {
+  EFECTIVO:      { background:'rgba(74,222,128,.15)',  color:'#4ade80', border:'1px solid rgba(74,222,128,.3)'  },
+  TRANSFERENCIA: { background:'rgba(96,165,250,.15)',  color:'#60a5fa', border:'1px solid rgba(96,165,250,.3)'  },
+  MIXTO:         { background:'rgba(251,191,36,.15)',  color:'#fbbf24', border:'1px solid rgba(251,191,36,.3)'  },
+  ADDI:          { background:'rgba(192,132,252,.15)', color:'#c084fc', border:'1px solid rgba(192,132,252,.3)' },
 };
+
+const MEDIO_LABEL = { BANCOLOMBIA:'Bancolombia', NEQUI:'Nequi', DAVIPLATA:'Daviplata' };
+
+// Ventas históricas sin proveedor registrado muestran Nequi como valor predeterminado.
+function proveedorNombre(p) { return MEDIO_LABEL[p] || MEDIO_LABEL.NEQUI; }
+
+function textoMedioPago(v) {
+  switch (v.tipoPago) {
+    case 'ADDI':           return '📠 Addi';
+    case 'TRANSFERENCIA':  return `🏦 Transferencia - ${proveedorNombre(v.transferProvider)}`;
+    case 'MIXTO':
+      return (v.valorTransferencia || 0) > 0
+        ? `💳 Mixto (Efectivo + ${proveedorNombre(v.mixedTransferProvider)})`
+        : '💳 Mixto';
+    default:               return '💵 Efectivo';
+  }
+}
+
+function BadgePago({ venta }) {
+  let kind = venta.tipoPago;
+  if (!BADGE_STYLE[kind]) kind = 'EFECTIVO';
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700, ...BADGE_STYLE[kind] }}>
+      {textoMedioPago(venta)}
+    </span>
+  );
+}
 
 function getIni(nombre) {
   const p = (nombre || '').trim().split(' ').filter(Boolean);
@@ -355,7 +382,7 @@ export default function HistorialClient({
                     <td style={{ color:'#e53e3e', fontSize:'0.85rem' }}>{totalDesc > 0 ? `-$${fmt2(totalDesc)}` : '—'}</td>
                     <td style={{ color:'#fb923c', fontSize:'0.85rem' }}>{(v.costoAdicional || 0) > 0 ? `+$${fmt2(v.costoAdicional)}` : '—'}</td>
                     <td style={{ fontSize:'1rem', fontWeight:800, color:'var(--primary)', fontFamily:"'Rajdhani',sans-serif" }}>${fmt2(v.total)}</td>
-                    <td>{BADGE_PAGO[v.tipoPago] || BADGE_PAGO.EFECTIVO}</td>
+                    <td><BadgePago venta={v} /></td>
                     <td>
                       {v.estado === 'COMPLETADA'
                         ? <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:'rgba(57,255,20,.1)', color:'var(--primary)', border:'1px solid rgba(57,255,20,.25)', padding:'4px 12px', borderRadius:20, fontSize:'0.72rem', fontWeight:700 }}>● COMPLETADA</span>
@@ -517,12 +544,20 @@ export default function HistorialClient({
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 16px', fontSize:'0.8rem', color:'#555', borderTop:'1px dashed #e5f0e0' }}>
                   <span>Método de pago</span>
-                  <span>{factura.tipoPago === 'TRANSFERENCIA' ? '🏦 Transf.' : factura.tipoPago === 'MIXTO' ? '💳 Mixto' : factura.tipoPago === 'ADDI' ? '📠 Addi' : '💵 Efectivo'}</span>
+                  <span>
+                    {factura.tipoPago === 'TRANSFERENCIA' ? `🏦 Transferencia - ${proveedorNombre(factura.dataPago?.transferProvider)}`
+                      : factura.tipoPago === 'MIXTO' ? '💳 Mixto'
+                      : factura.tipoPago === 'ADDI' ? '📠 Addi'
+                      : '💵 Efectivo'}
+                  </span>
                 </div>
                 {factura.tipoPago === 'MIXTO' && (
                   <>
                     <div style={{ display:'flex', justifyContent:'space-between', padding:'4px 16px', fontSize:'0.78rem', color:'#4ade80' }}><span>└ Efectivo</span><span>${fmt2(factura.valorEfectivo)}</span></div>
-                    <div style={{ display:'flex', justifyContent:'space-between', padding:'4px 16px', fontSize:'0.78rem', color:'#60a5fa' }}><span>└ Transferencia</span><span>${fmt2(factura.valorTransferencia)}</span></div>
+                    <div style={{ display:'flex', justifyContent:'space-between', padding:'4px 16px', fontSize:'0.78rem', color:'#60a5fa' }}>
+                      <span>└ Transferencia{(factura.valorTransferencia || 0) > 0 ? ` (${proveedorNombre(factura.dataPago?.mixedTransferProvider)})` : ''}</span>
+                      <span>${fmt2(factura.valorTransferencia)}</span>
+                    </div>
                   </>
                 )}
               </div>

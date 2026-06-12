@@ -195,12 +195,41 @@ async function dInventario() {
   return { hs, rs, total:p.length, valor:+fmt2(p.reduce((s,x)=>s+x.precio*x.cantidad,0)) };
 }
 
+// Proveedores de transferencia: etiquetas para mostrar en los reportes Excel.
+const PROVEEDOR_LABEL   = { BANCOLOMBIA:'Bancolombia', NEQUI:'Nequi', DAVIPLATA:'Daviplata' };
+const PROVEEDOR_DEFAULT = 'NEQUI';
+
+// Proveedor de transferencia de una venta para el Excel.
+// Ventas históricas (sin proveedor registrado) muestran "Nequi" por defecto, solo para visualización.
+function proveedorTransferenciaVenta(x) {
+  if (x.tipoPago === 'TRANSFERENCIA') return PROVEEDOR_LABEL[x.transferProvider] || PROVEEDOR_LABEL[PROVEEDOR_DEFAULT];
+  if (x.tipoPago === 'MIXTO' && (x.valorTransferencia || 0) > 0) return PROVEEDOR_LABEL[x.mixedTransferProvider] || PROVEEDOR_LABEL[PROVEEDOR_DEFAULT];
+  return '—';
+}
+
+// Ingresos por transferencia agrupados por proveedor (Bancolombia, Nequi, Daviplata).
+// En pagos mixtos solo se contabiliza la parte transferida. Ventas históricas sin proveedor -> Nequi.
+function resumenTransferenciaVentas(v) {
+  const porMedio = { BANCOLOMBIA:0, DAVIPLATA:0, NEQUI:0 };
+  for (const x of v) {
+    if (x.estado !== 'COMPLETADA') continue;
+    if (x.tipoPago === 'TRANSFERENCIA') {
+      const medio = x.transferProvider || PROVEEDOR_DEFAULT;
+      porMedio[medio] = (porMedio[medio] || 0) + (x.valorTransferencia || 0);
+    } else if (x.tipoPago === 'MIXTO' && (x.valorTransferencia || 0) > 0) {
+      const medio = x.mixedTransferProvider || PROVEEDOR_DEFAULT;
+      porMedio[medio] = (porMedio[medio] || 0) + (x.valorTransferencia || 0);
+    }
+  }
+  return porMedio;
+}
+
 async function dVentas() {
   const v  = await listarVentas();
-  const hs = ['ID','Código','Fecha','Hora','Vendedor ID','Vendedor','Subtotal','Desc. Productos','Desc. Total','Tipo Desc.','Costo Adicional','Tipo Costo Adic.','Total','Estado','Tipo Pago','Efectivo','Transferencia','Addi'];
-  const rs = v.map(x=>[x.id,x.codigo,x.fecha,x.hora,x.vendedorId,x.vendedorNombre,+fmt2(x.subtotal),+fmt2(x.descuentoProductos),+fmt2(x.descuentoTotal),x.descuentoTipo,+fmt2(x.costoAdicional),x.costoAdicionalTipo,+fmt2(x.total),x.estado,x.tipoPago||'EFECTIVO',+fmt2(x.valorEfectivo),+fmt2(x.valorTransferencia),+fmt2(x.valorAddi)]);
+  const hs = ['ID','Código','Fecha','Hora','Vendedor ID','Vendedor','Subtotal','Desc. Productos','Desc. Total','Tipo Desc.','Costo Adicional','Tipo Costo Adic.','Total','Estado','Tipo Pago','Efectivo','Transferencia','Addi','Proveedor Transferencia'];
+  const rs = v.map(x=>[x.id,x.codigo,x.fecha,x.hora,x.vendedorId,x.vendedorNombre,+fmt2(x.subtotal),+fmt2(x.descuentoProductos),+fmt2(x.descuentoTotal),x.descuentoTipo,+fmt2(x.costoAdicional),x.costoAdicionalTipo,+fmt2(x.total),x.estado,x.tipoPago||'EFECTIVO',+fmt2(x.valorEfectivo),+fmt2(x.valorTransferencia),+fmt2(x.valorAddi),proveedorTransferenciaVenta(x)]);
   const tot = v.filter(x=>x.estado==='COMPLETADA').reduce((s,x)=>s+x.total,0);
-  rs.push(['','','','','','','','','','','','',+fmt2(tot),'TOTAL','','','','']);
+  rs.push(['','','','','','','','','','','','',+fmt2(tot),'TOTAL','','','','','']);
   const vc = v.filter(x=>x.estado==='COMPLETADA');
   return { hs, rs, total:v.length, completadas:vc.length, ingresos:+fmt2(tot) };
 }
@@ -267,6 +296,7 @@ async function dEstadisticas() {
   const h=hoy(); const m=mesActual();
   const vh=vc.filter(x=>x.fecha===h); const vm=vc.filter(x=>x.fecha?.startsWith(m));
   const pg=resumenPagoGastos(g);
+  const pv=resumenTransferenciaVentas(v);
   const hs=['Métrica','Valor'];
   const rs=[
     ['Total ventas (histórico)',vc.length],['Total ingresos (histórico)',+fmt2(tv)],
@@ -281,6 +311,10 @@ async function dEstadisticas() {
     ['  Transferencia - Bancolombia',+fmt2(pg.porMedio.BANCOLOMBIA)],
     ['  Transferencia - Daviplata',+fmt2(pg.porMedio.DAVIPLATA)],
     ['  Transferencia - Nequi',+fmt2(pg.porMedio.NEQUI)],
+    ['',''],['INGRESOS POR TRANSFERENCIA (HISTÓRICO)',''],
+    ['  Transferencia - Bancolombia',+fmt2(pv.BANCOLOMBIA)],
+    ['  Transferencia - Daviplata',+fmt2(pv.DAVIPLATA)],
+    ['  Transferencia - Nequi',+fmt2(pv.NEQUI)],
   ];
   return { hs, rs };
 }
@@ -511,8 +545,8 @@ async function construirLibro(tipo, sesion) {
     // Ventas del mes — FILTRO IDÉNTICO AL ORIGINAL
     const v    = await listarVentas();
     const vMes = v.filter(x=>x.estado==='COMPLETADA'&&x.fecha?.startsWith(mesActual()));
-    const hsV  = ['Código','Fecha','Hora','Vendedor','Total','Tipo Pago'];
-    const rsV  = vMes.map(x=>[x.codigo,x.fecha,x.hora,x.vendedorNombre,+fmt2(x.total),x.tipoPago]);
+    const hsV  = ['Código','Fecha','Hora','Vendedor','Total','Tipo Pago','Proveedor Transferencia'];
+    const rsV  = vMes.map(x=>[x.codigo,x.fecha,x.hora,x.vendedorNombre,+fmt2(x.total),x.tipoPago,proveedorTransferenciaVenta(x)]);
     const totV = vMes.reduce((s,x)=>s+x.total,0);
     sheet(wb,'Ventas del Mes', hsV, rsV,'ventas',{
       titulo: `VENTAS — ${mesActual()}`,

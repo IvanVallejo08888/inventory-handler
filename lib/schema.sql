@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS ventas (
   valor_transferencia  NUMERIC(12,2) NOT NULL DEFAULT 0,
   valor_addi           NUMERIC(12,2) NOT NULL DEFAULT 0,
   costo_adicional      NUMERIC(12,2) NOT NULL DEFAULT 0,
-  costo_adicional_tipo TEXT    NOT NULL DEFAULT 'NINGUNO'
+  costo_adicional_tipo TEXT    NOT NULL DEFAULT 'NINGUNO',
+  transfer_provider        TEXT,  -- BANCOLOMBIA | NEQUI | DAVIPLATA (si tipo_pago = TRANSFERENCIA)
+  mixed_transfer_provider  TEXT   -- BANCOLOMBIA | NEQUI | DAVIPLATA (si tipo_pago = MIXTO y valor_transferencia > 0)
 );
 
 CREATE TABLE IF NOT EXISTS detalles_ventas (

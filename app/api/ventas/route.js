@@ -49,6 +49,8 @@ export async function GET(request) {
       valorEfectivo:       venta.valorEfectivo,
       valorTransferencia:  venta.valorTransferencia,
       valorAddi:           venta.valorAddi,
+      transferProvider:       venta.transferProvider,
+      mixedTransferProvider:  venta.mixedTransferProvider,
       items:               detalles,
     });
   }
@@ -85,16 +87,19 @@ export async function GET(request) {
 }
 
 /* ── POST ─────────────────────────────────────────────────────────────── */
+const MEDIOS_TRANSFERENCIA_VALIDOS = ['BANCOLOMBIA', 'NEQUI', 'DAVIPLATA'];
+
 export async function POST(request) {
   const sesion = await obtenerSesion();
   if (!sesion) return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
+  const admin = esAdmin(sesion);
 
   try {
     const body   = await request.json();
     const accion = body.accion;
 
     if (accion === 'crear') {
-      const { detalles, descuentoGlobal, descuentoGlobalTipo, costoAdicionalValor, costoAdicionalTipo, tipoPago, valorEfectivo, valorTransferencia } = body;
+      const { detalles, descuentoGlobal, descuentoGlobalTipo, costoAdicionalValor, costoAdicionalTipo, tipoPago, valorEfectivo, valorTransferencia, transferProvider, mixedTransferProvider } = body;
 
       if (!detalles?.length) return NextResponse.json({ error: 'Agrega al menos un producto.' }, { status: 400 });
 
@@ -141,6 +146,20 @@ export async function POST(request) {
         if (Math.abs(sumaMixto - total) > 1) vTransferencia = Math.max(0, total - vEfectivo);
       }
 
+      let transferProviderFinal = null;
+      let mixedTransferProviderFinal = null;
+      if (tipoPago === 'TRANSFERENCIA') {
+        if (!MEDIOS_TRANSFERENCIA_VALIDOS.includes(transferProvider)) {
+          return NextResponse.json({ error: 'Selecciona el medio de transferencia (Bancolombia, Nequi o Daviplata).' }, { status: 400 });
+        }
+        transferProviderFinal = transferProvider;
+      } else if (tipoPago === 'MIXTO' && vTransferencia > 0) {
+        if (!MEDIOS_TRANSFERENCIA_VALIDOS.includes(mixedTransferProvider)) {
+          return NextResponse.json({ error: 'Selecciona el medio de transferencia para la parte mixta.' }, { status: 400 });
+        }
+        mixedTransferProviderFinal = mixedTransferProvider;
+      }
+
       const ventaData = {
         vendedorId:         sesion.id,
         vendedorNombre:     sesion.nombreCompleto,
@@ -153,6 +172,8 @@ export async function POST(request) {
         valorEfectivo:      vEfectivo,
         valorTransferencia: vTransferencia,
         valorAddi:          vAddi,
+        transferProvider:       transferProviderFinal,
+        mixedTransferProvider:  mixedTransferProviderFinal,
       };
 
       const res = await crearVenta(ventaData, detalles);

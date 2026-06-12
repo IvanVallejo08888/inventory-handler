@@ -5,6 +5,27 @@ import PageHeader from '@/components/ui/PageHeader';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const VISIBLE_STEP = 6;
+const MEDIOS_TRANSFERENCIA = [['BANCOLOMBIA','🏦 Bancolombia'],['NEQUI','📱 Nequi'],['DAVIPLATA','💳 Daviplata']];
+const MEDIO_LABEL = { BANCOLOMBIA:'Bancolombia', NEQUI:'Nequi', DAVIPLATA:'Daviplata' };
+
+function SelectorMedioTransferencia({ value, onChange, label }) {
+  return (
+    <div style={{ marginTop:10 }}>
+      <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:6, fontWeight:600 }}>{label}</div>
+      <div style={{ display:'flex', gap:6 }}>
+        {MEDIOS_TRANSFERENCIA.map(([val, lbl]) => (
+          <div key={val} onClick={() => onChange(val)} style={{
+            flex:1, padding:'7px 4px', textAlign:'center', fontSize:12, fontWeight:600,
+            borderRadius:'var(--radius-sm)', cursor:'pointer',
+            border:`1px solid ${value === val ? 'var(--primary)' : 'var(--border-color)'}`,
+            background: value === val ? 'var(--primary)' : 'transparent',
+            color:      value === val ? '#000' : 'var(--text-muted)',
+          }}>{lbl}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function VentasClient({ productos, sesion }) {
   const router = useRouter();
@@ -25,6 +46,8 @@ export default function VentasClient({ productos, sesion }) {
   const [mixtoMode,   setMixtoMode]   = useState('valor');
   const [mixtoEf,     setMixtoEf]     = useState('');
   const [mixtoTr,     setMixtoTr]     = useState('');
+  const [transferProvider,      setTransferProvider]      = useState(null);
+  const [mixedTransferProvider, setMixedTransferProvider]  = useState(null);
   const [modalOpen,   setModalOpen]   = useState(false);
   const [cargando,    setCargando]    = useState(false);
   const [msg,         setMsg]         = useState(null);
@@ -159,6 +182,12 @@ export default function VentasClient({ productos, sesion }) {
     if (!keys.length) return;
     if (montoDesc >= subtotal && subtotal > 0) { toast('El descuento no puede superar el total', 'err'); return; }
     const { vEf, vTr } = calcPago();
+    if (pagoTipo === 'TRANSFERENCIA' && !transferProvider) {
+      toast('Selecciona el medio de transferencia: Bancolombia, Nequi o Daviplata', 'err'); return;
+    }
+    if (pagoTipo === 'MIXTO' && vTr > 0 && !mixedTransferProvider) {
+      toast('Selecciona el medio de la transferencia en el pago mixto', 'err'); return;
+    }
     const detalles = keys.map(cod => ({
       productoCodigo: cod, productoNombre: carrito[cod].nombre,
       cantidad: carrito[cod].cantidad, precioUnitario: carrito[cod].precio, descuentoUnidad: 0,
@@ -175,6 +204,8 @@ export default function VentasClient({ productos, sesion }) {
           costoAdicionalTipo: costoTipo,
           tipoPago: pagoTipo,
           valorEfectivo: vEf, valorTransferencia: vTr,
+          transferProvider: pagoTipo === 'TRANSFERENCIA' ? transferProvider : null,
+          mixedTransferProvider: pagoTipo === 'MIXTO' && vTr > 0 ? mixedTransferProvider : null,
         }),
       });
       const data = await res.json();
@@ -183,6 +214,7 @@ export default function VentasClient({ productos, sesion }) {
         setModalOpen(false); setCarritoAbierto(false);
         setCarrito({}); setDescValor(''); setDescChip(null);
         setCostoValor(''); setCostoChip(null);
+        setTransferProvider(null); setMixedTransferProvider(null);
         setMsg(`✅ Venta ${data.codigo} registrada exitosamente.`);
         router.refresh();
       }
@@ -422,11 +454,27 @@ export default function VentasClient({ productos, sesion }) {
                       💵 Ef: ${fmt(pvEf)} | 🏦 Tr: ${fmt(pvTr)}
                     </p>
                   )}
+                  {pvTr > 0 && (
+                    <SelectorMedioTransferencia
+                      label="Transferencia realizada por:"
+                      value={mixedTransferProvider}
+                      onChange={setMixedTransferProvider}
+                    />
+                  )}
                 </div>
               ) : (
-                <p style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>
-                  Toda la venta será registrada como <strong style={{ color:'var(--text-primary)' }}>{iconosPago[pagoTipo]}</strong>.
-                </p>
+                <div>
+                  <p style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>
+                    Toda la venta será registrada como <strong style={{ color:'var(--text-primary)' }}>{iconosPago[pagoTipo]}</strong>.
+                  </p>
+                  {pagoTipo === 'TRANSFERENCIA' && (
+                    <SelectorMedioTransferencia
+                      label="Transferencia realizada por:"
+                      value={transferProvider}
+                      onChange={setTransferProvider}
+                    />
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -684,9 +732,14 @@ export default function VentasClient({ productos, sesion }) {
                 <span>{iconosPago[pagoTipo]}</span>
                 <span style={{ color:'#4ade80' }}>✓</span>
               </div>
+              {pagoTipo === 'TRANSFERENCIA' && transferProvider && (
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
+                  🏦 {MEDIO_LABEL[transferProvider]}
+                </div>
+              )}
               {pagoTipo === 'MIXTO' && (
                 <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
-                  💵 Efectivo: ${fmt(pvEf)} &nbsp;|&nbsp; 🏦 Transf: ${fmt(pvTr)}
+                  💵 Efectivo: ${fmt(pvEf)} &nbsp;|&nbsp; 🏦 Transf: ${fmt(pvTr)}{pvTr > 0 && mixedTransferProvider ? ` (${MEDIO_LABEL[mixedTransferProvider]})` : ''}
                 </div>
               )}
             </div>
