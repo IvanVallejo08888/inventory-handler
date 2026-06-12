@@ -205,11 +205,33 @@ async function dVentas() {
   return { hs, rs, total:v.length, completadas:vc.length, ingresos:+fmt2(tot) };
 }
 
+// Resume el origen de los gastos: efectivo vs. transferencia (y por medio de transferencia).
+function resumenPagoGastos(g) {
+  let efectivo = 0, transferencia = 0;
+  const porMedio = { BANCOLOMBIA:0, DAVIPLATA:0, NEQUI:0 };
+  for (const x of g) {
+    const metodo = x.metodoPago || 'EFECTIVO';
+    if (metodo === 'TRANSFERENCIA') {
+      transferencia += x.valor;
+      if (porMedio[x.medioPago] != null) porMedio[x.medioPago] += x.valor;
+    } else if (metodo === 'MIXTO') {
+      efectivo      += x.valorEfectivo      || 0;
+      transferencia += x.valorTransferencia || 0;
+      if (porMedio[x.medioPago] != null) porMedio[x.medioPago] += x.valorTransferencia || 0;
+    } else {
+      efectivo += x.valor;
+    }
+  }
+  return { efectivo, transferencia, porMedio };
+}
+
 async function dGastos() {
-  const g  = await listarGastos();
-  const hs = ['ID','Código','Nombre','Valor','Fecha','Categoría','Descripción','Estado'];
-  const rs = g.map(x=>[x.id,x.codigo,x.nombre,+fmt2(x.valor),x.fecha,x.categoria,x.descripcion||'',x.estado]);
-  rs.push(['','','TOTAL:',+fmt2(g.reduce((s,x)=>s+x.valor,0)),'','','','']);
+  const g   = await listarGastos();
+  const hs  = ['ID','Código','Nombre','Valor','Fecha','Categoría','Descripción','Estado','Tipo Pago','Medio Pago','Efectivo','Transferencia'];
+  const rs  = g.map(x=>[x.id,x.codigo,x.nombre,+fmt2(x.valor),x.fecha,x.categoria,x.descripcion||'',x.estado,
+    x.metodoPago||'EFECTIVO', x.medioPago||'', +fmt2(x.valorEfectivo||0), +fmt2(x.valorTransferencia||0)]);
+  const res = resumenPagoGastos(g);
+  rs.push(['','','TOTAL:',+fmt2(g.reduce((s,x)=>s+x.valor,0)),'','','','','','',+fmt2(res.efectivo),+fmt2(res.transferencia)]);
   return { hs, rs, total:g.length, monto:+fmt2(g.reduce((s,x)=>s+x.valor,0)) };
 }
 
@@ -244,6 +266,7 @@ async function dEstadisticas() {
   const tv=vc.reduce((s,x)=>s+x.total,0); const tg=g.reduce((s,x)=>s+x.valor,0);
   const h=hoy(); const m=mesActual();
   const vh=vc.filter(x=>x.fecha===h); const vm=vc.filter(x=>x.fecha?.startsWith(m));
+  const pg=resumenPagoGastos(g);
   const hs=['Métrica','Valor'];
   const rs=[
     ['Total ventas (histórico)',vc.length],['Total ingresos (histórico)',+fmt2(tv)],
@@ -252,6 +275,12 @@ async function dEstadisticas() {
     ['Ventas del mes',vm.length],['Ingresos del mes',+fmt2(vm.reduce((s,x)=>s+x.total,0))],
     ['Ticket promedio',vc.length?+fmt2(tv/vc.length):0],
     ['Productos en inventario',p.length],['Usuarios del sistema',u.length],
+    ['',''],['ORIGEN DE LOS GASTOS (HISTÓRICO)',''],
+    ['Gastos en efectivo',+fmt2(pg.efectivo)],
+    ['Gastos por transferencia',+fmt2(pg.transferencia)],
+    ['  Transferencia - Bancolombia',+fmt2(pg.porMedio.BANCOLOMBIA)],
+    ['  Transferencia - Daviplata',+fmt2(pg.porMedio.DAVIPLATA)],
+    ['  Transferencia - Nequi',+fmt2(pg.porMedio.NEQUI)],
   ];
   return { hs, rs };
 }

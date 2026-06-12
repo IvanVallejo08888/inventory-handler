@@ -16,7 +16,44 @@ const CATS = [
   { key:'GASTO_DIARIO', label:'Gasto diario', icono:'📅', cls:'c-diario' },
 ];
 
-const VACIO = { nombre:'', valor:'', fecha:HOY(), categoria:'SERVICIO', descripcion:'' };
+const METODOS_PAGO = [['EFECTIVO','💵 Efectivo'],['TRANSFERENCIA','🏦 Transferencia'],['MIXTO','💳 Mixto']];
+const MEDIOS_PAGO  = [['BANCOLOMBIA','Bancolombia'],['DAVIPLATA','Daviplata'],['NEQUI','Nequi']];
+const MEDIO_LABEL  = { BANCOLOMBIA:'Bancolombia', DAVIPLATA:'Daviplata', NEQUI:'Nequi' };
+
+const VACIO = { nombre:'', valor:'', fecha:HOY(), categoria:'SERVICIO', descripcion:'', metodoPago:'EFECTIVO', medioPago:'', valorEfectivo:'' };
+
+function formatOrigen(g) {
+  if (g.metodoPago === 'TRANSFERENCIA') {
+    return `Transferencia - ${MEDIO_LABEL[g.medioPago] || g.medioPago || ''}`;
+  }
+  if (g.metodoPago === 'MIXTO') {
+    return `Mixto (Efectivo: ${fmt(g.valorEfectivo)} / ${MEDIO_LABEL[g.medioPago] || g.medioPago || ''}: ${fmt(g.valorTransferencia)})`;
+  }
+  return 'Efectivo';
+}
+
+function validarPago(form) {
+  if (form.metodoPago === 'TRANSFERENCIA' && !form.medioPago) {
+    return 'Debe seleccionar el medio de transferencia (Bancolombia, Daviplata o Nequi).';
+  }
+  if (form.metodoPago === 'MIXTO') {
+    const total = parseFloat(form.valor) || 0;
+    const ef    = parseFloat(form.valorEfectivo);
+    if (form.valorEfectivo === '' || isNaN(ef)) {
+      return 'Debe ingresar el valor en efectivo.';
+    }
+    if (ef < 0) {
+      return 'El valor en efectivo no puede ser negativo.';
+    }
+    if (ef > total) {
+      return 'El valor en efectivo no puede superar el total del gasto.';
+    }
+    if (!form.medioPago) {
+      return 'Debe seleccionar el medio de transferencia para el saldo restante.';
+    }
+  }
+  return null;
+}
 
 export default function GastosClient({ lista, categoriaActual, totalMes, gastosPorCat, esAdmin }) {
   const router    = useRouter();
@@ -34,7 +71,12 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   function abrirEditar(g) {
-    setForm({ id: g.id, nombre: g.nombre, valor: g.valor, fecha: g.fecha, categoria: g.categoria, descripcion: g.descripcion || '' });
+    setForm({
+      id: g.id, nombre: g.nombre, valor: g.valor, fecha: g.fecha, categoria: g.categoria, descripcion: g.descripcion || '',
+      metodoPago: g.metodoPago || 'EFECTIVO',
+      medioPago: g.medioPago || '',
+      valorEfectivo: g.valorEfectivo != null ? g.valorEfectivo : '',
+    });
     setModalEditar(true);
   }
 
@@ -42,6 +84,10 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
   function cerrarEditar()  { setModalEditar(false);  setForm(VACIO); }
 
   async function enviar(accion) {
+    if (accion !== 'eliminar') {
+      const error = validarPago(form);
+      if (error) { setMsgTipo('error'); setMsg(error); return; }
+    }
     setCargando(true);
     try {
       const body = accion === 'eliminar' ? { accion, id: confirmId } : { accion, ...form };
@@ -122,7 +168,7 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
             <thead>
               <tr>
                 <th>Código</th><th>Nombre</th><th>Valor</th>
-                <th>Fecha</th><th>Categoría</th>
+                <th>Fecha</th><th>Categoría</th><th>Origen</th>
                 {esAdmin && <th>Acciones</th>}
               </tr>
             </thead>
@@ -138,6 +184,7 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
                       {g.categoria.replace('_', ' ')}
                     </span>
                   </td>
+                  <td style={{ color:'var(--text-muted)', fontSize:'0.78rem' }}>{formatOrigen(g)}</td>
                   {esAdmin && (
                     <td>
                       <button className="action-btn" onClick={() => abrirEditar(g)}>✏️</button>
@@ -148,7 +195,7 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
               ))}
               {!lista.length && (
                 <tr>
-                  <td colSpan={esAdmin ? 6 : 5} style={{ textAlign:'center', color:'var(--text-muted)', padding:'2rem' }}>
+                  <td colSpan={esAdmin ? 7 : 6} style={{ textAlign:'center', color:'var(--text-muted)', padding:'2rem' }}>
                     Sin gastos registrados
                   </td>
                 </tr>
@@ -224,7 +271,27 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
   );
 }
 
+function ToggleButtons({ options, value, onChange }) {
+  return (
+    <div style={{ display:'flex', gap:6 }}>
+      {options.map(([val, lbl]) => (
+        <div key={val} onClick={() => onChange(val)} style={{
+          flex:1, padding:'7px 4px', textAlign:'center', fontSize:12, fontWeight:600,
+          borderRadius:'var(--radius-sm)', cursor:'pointer',
+          border:`1px solid ${value === val ? 'var(--primary)' : 'var(--border-color)'}`,
+          background: value === val ? 'var(--primary)' : 'transparent',
+          color:      value === val ? '#000' : 'var(--text-muted)',
+        }}>{lbl}</div>
+      ))}
+    </div>
+  );
+}
+
 function FormGasto({ form, set }) {
+  const total         = parseFloat(form.valor) || 0;
+  const efectivo      = parseFloat(form.valorEfectivo) || 0;
+  const transferencia = Math.max(0, total - efectivo);
+
   return (
     <>
       <div className="form-row">
@@ -261,6 +328,38 @@ function FormGasto({ form, set }) {
           onChange={e => set('descripcion', e.target.value)}
           placeholder="Descripción adicional (opcional)" />
       </div>
+
+      <div className="form-group">
+        <label className="form-label">Origen del gasto *</label>
+        <ToggleButtons options={METODOS_PAGO} value={form.metodoPago || 'EFECTIVO'}
+          onChange={v => set('metodoPago', v)} />
+      </div>
+
+      {form.metodoPago === 'TRANSFERENCIA' && (
+        <div className="form-group">
+          <label className="form-label">Medio de transferencia *</label>
+          <ToggleButtons options={MEDIOS_PAGO} value={form.medioPago}
+            onChange={v => set('medioPago', v)} />
+        </div>
+      )}
+
+      {form.metodoPago === 'MIXTO' && (
+        <>
+          <div className="form-group">
+            <label className="form-label">Valor en efectivo *</label>
+            <input className="form-control" type="number" min="0" max={total} step="0.01"
+              value={form.valorEfectivo} onChange={e => set('valorEfectivo', e.target.value)} placeholder="0.00" />
+            <p style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
+              🏦 Transferencia (calculado automáticamente): {fmt(transferencia)}
+            </p>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Medio de transferencia *</label>
+            <ToggleButtons options={MEDIOS_PAGO} value={form.medioPago}
+              onChange={v => set('medioPago', v)} />
+          </div>
+        </>
+      )}
     </>
   );
 }

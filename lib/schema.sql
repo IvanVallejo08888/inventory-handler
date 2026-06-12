@@ -57,14 +57,18 @@ CREATE TABLE IF NOT EXISTS detalles_ventas (
 );
 
 CREATE TABLE IF NOT EXISTS gastos (
-  id          INTEGER PRIMARY KEY,
-  codigo      TEXT    UNIQUE NOT NULL,
-  nombre      TEXT    NOT NULL,
-  valor       NUMERIC(12,2) NOT NULL,
-  fecha       TEXT    NOT NULL,
-  categoria   TEXT    NOT NULL DEFAULT 'GASTO_DIARIO',
-  descripcion TEXT    NOT NULL DEFAULT '',
-  estado      TEXT    NOT NULL DEFAULT 'ACTIVO'
+  id                  INTEGER PRIMARY KEY,
+  codigo              TEXT    UNIQUE NOT NULL,
+  nombre              TEXT    NOT NULL,
+  valor               NUMERIC(12,2) NOT NULL,
+  fecha               TEXT    NOT NULL,
+  categoria           TEXT    NOT NULL DEFAULT 'GASTO_DIARIO',
+  descripcion         TEXT    NOT NULL DEFAULT '',
+  estado              TEXT    NOT NULL DEFAULT 'ACTIVO',
+  metodo_pago         TEXT    NOT NULL DEFAULT 'EFECTIVO', -- EFECTIVO | TRANSFERENCIA | MIXTO
+  medio_pago          TEXT,                                -- BANCOLOMBIA | DAVIPLATA | NEQUI (si aplica)
+  valor_efectivo      NUMERIC(12,2),                       -- usado en método MIXTO
+  valor_transferencia NUMERIC(12,2)                        -- usado en método MIXTO
 );
 
 CREATE TABLE IF NOT EXISTS recomendaciones (
