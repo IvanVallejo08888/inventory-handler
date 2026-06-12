@@ -161,13 +161,10 @@ export async function POST(request) {
     }
 
     if (accion === 'cancelar') {
-      if (!esAdmin(sesion)) {
-        return NextResponse.json({ error: 'Solo el administrador puede cancelar ventas.' }, { status: 403 });
-      }
       const id = parseInt(body.id);
       if (isNaN(id)) return NextResponse.json({ error: 'ID inválido.' }, { status: 400 });
 
-      const res = await cancelarVenta(id);
+      const res = await cancelarVenta(id, admin ? null : sesion.id);
       if (res.error) return NextResponse.json(res, { status: 400 });
       return NextResponse.json(res);
     }
