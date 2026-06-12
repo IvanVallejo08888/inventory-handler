@@ -392,7 +392,7 @@ export default function VentasClient({ productos, sesion }) {
                 <div>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, fontSize:11, color:'var(--text-muted)' }}>
                     <span>Dividir por:</span>
-                    {[['pct','% Porcentaje'],['valor','$ Valor']].map(([m, lbl]) => (
+                    {[['valor','$ Valor'],['pct','% Porcentaje']].map(([m, lbl]) => (
                       <button key={m} onClick={() => { setMixtoMode(m); setMixtoEf(''); setMixtoTr(''); }} style={{
                         padding:'4px 10px', borderRadius:20, cursor:'pointer', fontSize:11, border:'1px solid',
                         background: mixtoMode === m ? 'rgba(59,130,246,.25)' : 'transparent',
