@@ -260,7 +260,7 @@ export default function VentasClient({ productos, sesion }) {
           {descAbierto && (
             <div style={{ padding:14, background:'rgba(251,191,36,.03)', borderTop:'1px solid var(--border-color)' }}>
               <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-                {[['PORCENTAJE','% Porcentaje'],['FIJO','$ Valor fijo']].map(([tipo, lbl]) => (
+                {[['FIJO','$ Valor fijo'],['PORCENTAJE','% Porcentaje']].map(([tipo, lbl]) => (
                   <div key={tipo} onClick={() => onDescTipo(tipo)} style={{
                     flex:1, padding:'7px 0', textAlign:'center', border:'1px solid', borderRadius:'var(--radius-sm)',
                     fontSize:12, fontWeight:700, cursor:'pointer',
@@ -318,7 +318,7 @@ export default function VentasClient({ productos, sesion }) {
           {costoAbierto && (
             <div style={{ padding:14, background:'rgba(251,146,60,.03)', borderTop:'1px solid var(--border-color)' }}>
               <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-                {[['PORCENTAJE','% Porcentaje'],['FIJO','$ Valor fijo']].map(([tipo, lbl]) => (
+                {[['FIJO','$ Valor fijo'],['PORCENTAJE','% Porcentaje']].map(([tipo, lbl]) => (
                   <div key={tipo} onClick={() => onCostoTipo(tipo)} style={{
                     flex:1, padding:'7px 0', textAlign:'center', border:'1px solid', borderRadius:'var(--radius-sm)',
                     fontSize:12, fontWeight:700, cursor:'pointer',
