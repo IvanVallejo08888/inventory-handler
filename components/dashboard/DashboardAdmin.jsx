@@ -165,10 +165,50 @@ const MEDALLAS = ['🥇','🥈','🥉'];
 const COLORES  = ['rgba(255,215,0,.18)','rgba(192,192,192,.15)','rgba(205,127,50,.13)'];
 const BORDES   = ['rgba(255,215,0,.4)','rgba(192,192,192,.3)','rgba(205,127,50,.3)'];
 
+/* ── Medios de pago (gastos / transferencias) ───────────────────────────── */
+const MEDIO_INFO = {
+  EFECTIVO:    { icono:'💵', label:'Efectivo',    color:'#4ade80' },
+  NEQUI:       { icono:'📱', label:'Nequi',       color:'#ec4899' },
+  BANCOLOMBIA: { icono:'🏦', label:'Bancolombia', color:'#60a5fa' },
+  DAVIPLATA:   { icono:'💳', label:'Daviplata',   color:'#fb923c' },
+  OTRO:        { icono:'💱', label:'Otro',        color:'#94a3b8' },
+};
+function desgloseEntries(obj) {
+  return Object.entries(obj || {}).filter(([, v]) => v > 0);
+}
+
+/* ── Panel de desglose por medio de pago ─────────────────────────────────── */
+function DesgloseMedios({ entries }) {
+  if (!entries.length) {
+    return <p style={{ color:'var(--text-muted)', textAlign:'center', padding:'0.5rem 0' }}>Sin movimientos registrados hoy</p>;
+  }
+  return (
+    <>
+      {entries.map(([key, val]) => {
+        const info = MEDIO_INFO[key] || MEDIO_INFO.OTRO;
+        return (
+          <div key={key} style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'0.75rem 1rem', background:'rgba(255,255,255,0.025)',
+            border:'1px solid var(--border-subtle)', borderRadius:'var(--radius)',
+          }}>
+            <span style={{ display:'flex', alignItems:'center', gap:'0.6rem', fontSize:'0.88rem', color:'var(--text-primary)', fontWeight:600 }}>
+              <span style={{ fontSize:'1.15rem' }}>{info.icono}</span> {info.label}
+            </span>
+            <span style={{ fontWeight:800, color:info.color, fontFamily:"'Rajdhani',sans-serif", fontSize:'1.05rem' }}>{fmtFull(val)}</span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════════ */
 export default function DashboardAdmin(p) {
-  const [modalVend, setModalVend] = useState(false);
-  const [modalProd, setModalProd] = useState(false);
+  const [modalVend,     setModalVend]     = useState(false);
+  const [modalProd,     setModalProd]     = useState(false);
+  const [modalGastosDia,   setModalGastosDia]   = useState(false);
+  const [modalTransferDia, setModalTransferDia] = useState(false);
   const [fecha,     setFecha]     = useState('');
   const [isMobile,  setIsMobile]  = useState(false);
 
@@ -185,7 +225,8 @@ export default function DashboardAdmin(p) {
 
   const nombre     = p.sesion.nombreCompleto.split(' ')[0];
   const fotoUrl    = p.sesion.fotoPerfil ? `/api/foto-perfil?archivo=${p.sesion.fotoPerfil}` : null;
-  const utilColor  = p.utilidadMes >= 0 ? '#2dce6b' : '#ef4444';
+  const utilColor    = p.utilidadMes >= 0 ? '#2dce6b' : '#ef4444';
+  const utilDiaColor = p.utilidadDia >= 0 ? '#2dce6b' : '#ef4444';
   const totalGastosCat = Object.values(p.gastosCat || {}).reduce((s, v) => s + v, 0);
 
   // Datos de ranking
@@ -455,29 +496,60 @@ export default function DashboardAdmin(p) {
         </div>
       </div>
 
-      {/* ══ MÉTRICAS FINANCIERAS MES ══════════════════════════════════════ */}
+      {/* ══ INDICADORES DEL DÍA ═══════════════════════════════════════════ */}
+      <p style={{ fontSize:'0.65rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1.2px', marginBottom:'0.6rem' }}>
+        Indicadores del día
+      </p>
       <div style={{
         display:'grid',
         gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
         gap:'0.75rem', marginBottom:'1.25rem',
       }}>
-        {[
-          { label:'Ingresos mes', valor:p.ingresosMes,  icono:'📈', color:'#2dce6b', bg:'rgba(45,206,107,0.07)',  bd:'rgba(45,206,107,0.2)'  },
-          { label:'Gastos mes',   valor:p.gastosMes,    icono:'💸', color:'#f87171', bg:'rgba(239,68,68,0.07)',   bd:'rgba(239,68,68,0.2)'   },
-          { label:'Utilidad mes', valor:p.utilidadMes,  icono:'🏦', color:utilColor, bg: p.utilidadMes >= 0 ? 'rgba(45,206,107,0.07)' : 'rgba(239,68,68,0.07)', bd: p.utilidadMes >= 0 ? 'rgba(45,206,107,0.2)' : 'rgba(239,68,68,0.2)' },
-        ].map(c => (
-          <div key={c.label} style={{
-            background:c.bg, border:`1px solid ${c.bd}`,
-            borderRadius:'var(--radius)', padding:'0.875rem 1rem',
-            display:'flex', alignItems:'center', gap:'0.75rem',
-          }}>
-            <span style={{ fontSize:'1.4rem' }}>{c.icono}</span>
-            <div>
-              <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{c.label}</div>
-              <div style={{ fontSize:'1.2rem', fontWeight:900, color:c.color, fontFamily:"'Rajdhani',sans-serif", lineHeight:1.2 }}>{fmt(c.valor)}</div>
-            </div>
+        {/* Gastos del día — clickeable */}
+        <div
+          className="kpi-day-card clickable"
+          onClick={() => setModalGastosDia(true)}
+          style={{ background:'rgba(239,68,68,0.06)', borderColor:'rgba(239,68,68,0.22)' }}
+        >
+          <span className="kpi-day-icon" style={{ background:'rgba(239,68,68,0.14)', border:'1px solid rgba(239,68,68,0.3)' }}>💸</span>
+          <div style={{ minWidth:0, flex:1 }}>
+            <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Gastos del día</div>
+            <div style={{ fontSize:'1.35rem', fontWeight:900, color:'#f87171', fontFamily:"'Rajdhani',sans-serif", lineHeight:1.2 }}>{fmt(p.gastosHoy)}</div>
           </div>
-        ))}
+          <span className="kpi-day-arrow">Ver →</span>
+        </div>
+
+        {/* Transferencia del día — clickeable */}
+        <div
+          className="kpi-day-card clickable"
+          onClick={() => setModalTransferDia(true)}
+          style={{ background:'rgba(59,130,246,0.06)', borderColor:'rgba(59,130,246,0.22)' }}
+        >
+          <span className="kpi-day-icon" style={{ background:'rgba(59,130,246,0.14)', border:'1px solid rgba(59,130,246,0.3)' }}>🏦</span>
+          <div style={{ minWidth:0, flex:1 }}>
+            <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Transferencia del día</div>
+            <div style={{ fontSize:'1.35rem', fontWeight:900, color:'#60a5fa', fontFamily:"'Rajdhani',sans-serif", lineHeight:1.2 }}>{fmt(p.transferenciaHoy)}</div>
+          </div>
+          <span className="kpi-day-arrow">Ver →</span>
+        </div>
+
+        {/* Utilidad del día */}
+        <div
+          className="kpi-day-card"
+          style={{
+            background: p.utilidadDia >= 0 ? 'rgba(45,206,107,0.06)' : 'rgba(239,68,68,0.06)',
+            borderColor: p.utilidadDia >= 0 ? 'rgba(45,206,107,0.22)' : 'rgba(239,68,68,0.22)',
+          }}
+        >
+          <span className="kpi-day-icon" style={{
+            background: p.utilidadDia >= 0 ? 'rgba(45,206,107,0.14)' : 'rgba(239,68,68,0.14)',
+            border: `1px solid ${p.utilidadDia >= 0 ? 'rgba(45,206,107,0.3)' : 'rgba(239,68,68,0.3)'}`,
+          }}>🏛️</span>
+          <div style={{ minWidth:0, flex:1 }}>
+            <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Utilidad del día</div>
+            <div style={{ fontSize:'1.35rem', fontWeight:900, color:utilDiaColor, fontFamily:"'Rajdhani',sans-serif", lineHeight:1.2 }}>{fmt(p.utilidadDia)}</div>
+          </div>
+        </div>
       </div>
 
       {/* ══ ACCIONES RÁPIDAS ══════════════════════════════════════════════ */}
@@ -581,12 +653,15 @@ export default function DashboardAdmin(p) {
         </div>
       </div>
 
-      {/* ══ MÉTODOS DE PAGO ═══════════════════════════════════════════════ */}
+      {/* ══ INDICADORES DEL MES ═══════════════════════════════════════════ */}
+      <p style={{ fontSize:'0.65rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1.2px', marginBottom:'0.6rem' }}>
+        Indicadores del mes
+      </p>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'0.75rem', marginBottom:'1.25rem' }}>
         {[
-          { label:'Efectivo hoy',      val:p.efectivoHoy,      icono:'💵', color:'#4ade80' },
-          { label:'Transferencia hoy', val:p.transferenciaHoy, icono:'🏦', color:'#60a5fa' },
-          { label:'Addi hoy',          val:p.addiHoy,          icono:'📠', color:'#c084fc' },
+          { label:'Ingresos del mes',  val:p.ingresosMes,  icono:'📈', color:'#2dce6b' },
+          { label:'Gastos del mes',    val:p.gastosMes,    icono:'💸', color:'#f87171' },
+          { label:'Utilidad del mes',  val:p.utilidadMes,  icono:'🏛️', color:utilColor },
           { label:'Efectivo mes',      val:p.efectivoMes,      icono:'💵', color:'#4ade80' },
           { label:'Transferencia mes', val:p.transferenciaMes, icono:'🏦', color:'#60a5fa' },
           { label:'Addi mes',          val:p.addiMes,          icono:'📠', color:'#c084fc' },
@@ -669,6 +744,44 @@ export default function DashboardAdmin(p) {
                 </div>
               ))}
               {!p.top3Productos?.length && <p style={{ color:'var(--text-muted)', textAlign:'center' }}>Sin datos este mes</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL Gastos del día ══════════════════════════════════════════ */}
+      {modalGastosDia && (
+        <div className="modal-overlay" onClick={() => setModalGastosDia(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">💸 Gastos del día</h2>
+              <button onClick={() => setModalGastosDia(false)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'1.2rem', color:'var(--text-muted)' }}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ textAlign:'center', marginBottom:'0.25rem' }}>
+                <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Total gastado hoy</div>
+                <div style={{ fontSize:'1.75rem', fontWeight:900, color:'#f87171', fontFamily:"'Rajdhani',sans-serif" }}>{fmtFull(p.gastosHoy)}</div>
+              </div>
+              <DesgloseMedios entries={desgloseEntries(p.gastosMedioPagoHoy)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL Transferencia del día ═══════════════════════════════════ */}
+      {modalTransferDia && (
+        <div className="modal-overlay" onClick={() => setModalTransferDia(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">🏦 Transferencia del día</h2>
+              <button onClick={() => setModalTransferDia(false)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'1.2rem', color:'var(--text-muted)' }}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ textAlign:'center', marginBottom:'0.25rem' }}>
+                <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Total transferido hoy</div>
+                <div style={{ fontSize:'1.75rem', fontWeight:900, color:'#60a5fa', fontFamily:"'Rajdhani',sans-serif" }}>{fmtFull(p.transferenciaHoy)}</div>
+              </div>
+              <DesgloseMedios entries={desgloseEntries(p.transferenciaEntidadHoy)} />
             </div>
           </div>
         </div>

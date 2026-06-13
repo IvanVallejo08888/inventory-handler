@@ -716,6 +716,45 @@ select.form-control option { background: var(--bg-card); color: var(--text-prima
   text-overflow: ellipsis;
 }
 
+/* ── KPI DEL DÍA (dashboard admin) ────────────────────────── */
+.kpi-day-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  overflow: hidden;
+}
+.kpi-day-card.clickable { cursor: pointer; }
+.kpi-day-card.clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow), 0 0 24px rgba(45,206,107,0.08);
+}
+.kpi-day-card.clickable:active { transform: translateY(-1px) scale(0.985); }
+.kpi-day-icon {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.35rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.kpi-day-arrow {
+  position: absolute;
+  top: 0.85rem; right: 0.95rem;
+  font-size: 0.65rem; font-weight: 700;
+  color: var(--text-muted);
+  opacity: 0.65;
+  transition: opacity 0.18s, transform 0.18s;
+}
+.kpi-day-card.clickable:hover .kpi-day-arrow { opacity: 1; transform: translateX(2px); }
+
 /* ── PANELS ───────────────────────────────────────────────── */
 .panel {
   background: var(--bg-card);

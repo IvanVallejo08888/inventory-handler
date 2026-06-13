@@ -9,10 +9,10 @@ import {
   productosMasVendidosMes, top3VendedoresMes, top3ProductosMes,
   listarVentas, totalEfectivoHoy, totalTransferenciaHoy,
   totalEfectivoMes, totalTransferenciaMes,
-  totalAddiHoy, totalAddiMes,
+  totalAddiHoy, totalAddiMes, transferenciaPorEntidadHoy,
 } from '@/lib/fileManagerVentas';
 import { listarProductos }   from '@/lib/fileManagerProductos';
-import { totalGastosMes, gastosPorCategoria, listarGastos } from '@/lib/fileManagerGastos';
+import { totalGastosMes, gastosPorCategoria, listarGastos, totalGastosDia, gastosPorMedioPagoDia } from '@/lib/fileManagerGastos';
 import { leerUsuarios }      from '@/lib/fileManager';
 
 export const metadata = { title: 'Dashboard — Área 17' };
@@ -39,7 +39,8 @@ export default async function DashboardPage() {
 
   if (admin) {
     const [usuarios, productos, gastosRecientes,
-           vpd, t3Vend, t3Prod, gastosCat, efHoy, trHoy, efMes, trMes, adHoy, adMes, ultimasVentas] = await Promise.all([
+           vpd, t3Vend, t3Prod, gastosCat, efHoy, trHoy, efMes, trMes, adHoy, adMes, ultimasVentas,
+           gastosHoyVal, gastosMedioPagoHoy, transferenciaEntidadHoy] = await Promise.all([
       leerUsuarios(),
       listarProductos(),
       listarGastos().then(g => g.slice(0, 5)),
@@ -54,7 +55,12 @@ export default async function DashboardPage() {
       totalAddiHoy(),
       totalAddiMes(),
       Promise.resolve(todasVentas.slice(0, 5)),
+      totalGastosDia(),
+      gastosPorMedioPagoDia(),
+      transferenciaPorEntidadHoy(),
     ]);
+
+    const utilidadDia = cajaHoy - gastosHoyVal;
 
     const activos = productos.filter(p => p.estado === 'ACTIVO');
     const productosStockBajo = activos.filter(p => p.cantidad <= 5).sort((a, b) => a.cantidad - b.cantidad);
@@ -91,6 +97,10 @@ export default async function DashboardPage() {
         transferenciaMes={trMes}
         addiHoy={adHoy}
         addiMes={adMes}
+        gastosHoy={gastosHoyVal}
+        gastosMedioPagoHoy={gastosMedioPagoHoy}
+        transferenciaEntidadHoy={transferenciaEntidadHoy}
+        utilidadDia={utilidadDia}
       />
     );
   }
