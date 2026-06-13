@@ -1,9 +1,11 @@
-'use client';
+﻿'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+// Quita tildes/diacríticos para búsquedas insensibles a acentos (ej. "japon" -> coincide con "Japón")
+const normalizar = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
 const VISIBLE_STEP = 6;
 const MEDIOS_TRANSFERENCIA = [['BANCOLOMBIA','🏦 Bancolombia'],['NEQUI','📱 Nequi'],['DAVIPLATA','💳 Daviplata']];
 const MEDIO_LABEL = { BANCOLOMBIA:'Bancolombia', NEQUI:'Nequi', DAVIPLATA:'Daviplata' };
@@ -134,10 +136,10 @@ export default function VentasClient({ productos, sesion }) {
   function limpiarCarrito() { setCarrito({}); }
 
   // Filtros
-  const palabras = buscar.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const palabras = normalizar(buscar.toLowerCase().trim()).split(/\s+/).filter(Boolean);
   const productosFiltrados = productos.filter(p => {
     if (palabras.length) {
-      const txt = (p.nombre + ' ' + p.codigo).toLowerCase();
+      const txt = normalizar((p.nombre + ' ' + p.codigo).toLowerCase());
       if (!palabras.every(w => txt.includes(w))) return false;
     }
     if (chipFiltro === 'disponible') return p.cantidad > 5;
