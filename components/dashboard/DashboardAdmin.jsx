@@ -16,6 +16,18 @@ function fmtFull(val) {
   const s = val < 0 ? '-' : '';
   return `${s}$${Math.abs(Math.round(val)).toLocaleString('es-CO')}`;
 }
+/** Igual que fmtFull pero antepone "+" a los valores positivos (para desgloses de utilidad) */
+function fmtSigned(val) {
+  if (!val) return '$0';
+  const s = val > 0 ? '+' : '-';
+  return `${s}$${Math.abs(Math.round(val)).toLocaleString('es-CO')}`;
+}
+/** Verde si > 0, rojo si < 0, gris si = 0 */
+function colorUtilidad(val) {
+  if (val > 0) return '#2dce6b';
+  if (val < 0) return '#ef4444';
+  return '#94a3b8';
+}
 
 /* ── Avatar iniciales ─────────────────────────────────────────────────── */
 function InicialAvatar({ nombre, size = 36 }) {
@@ -177,6 +189,39 @@ function desgloseEntries(obj) {
   return Object.entries(obj || {}).filter(([, v]) => v > 0);
 }
 
+/* ── Medios de pago para el desglose de utilidad (siempre los 5, con signo) ── */
+const UTILIDAD_MEDIOS = [
+  ['EFECTIVO',    '💵', 'Efectivo'],
+  ['NEQUI',       '📱', 'Nequi'],
+  ['DAVIPLATA',   '💳', 'Daviplata'],
+  ['BANCOLOMBIA', '🏦', 'Bancolombia'],
+  ['ADDI',        '📠', 'Addi'],
+];
+
+/* ── Panel de desglose de utilidad por medio de pago (ingresos - gastos) ──── */
+function DesgloseUtilidad({ utilidadPorMedio }) {
+  return (
+    <>
+      {UTILIDAD_MEDIOS.map(([key, icono, label]) => {
+        const val   = utilidadPorMedio[key] || 0;
+        const color = colorUtilidad(val);
+        return (
+          <div key={key} style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'0.75rem 1rem', background:'rgba(255,255,255,0.025)',
+            border:'1px solid var(--border-subtle)', borderRadius:'var(--radius)',
+          }}>
+            <span style={{ display:'flex', alignItems:'center', gap:'0.6rem', fontSize:'0.88rem', color:'var(--text-primary)', fontWeight:600 }}>
+              <span style={{ fontSize:'1.15rem' }}>{icono}</span> {label}
+            </span>
+            <span style={{ fontWeight:800, color, fontFamily:"'Rajdhani',sans-serif", fontSize:'1.05rem' }}>{fmtSigned(val)}</span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 /* ── Panel de desglose por medio de pago ─────────────────────────────────── */
 function DesgloseMedios({ entries }) {
   if (!entries.length) {
@@ -209,6 +254,7 @@ export default function DashboardAdmin(p) {
   const [modalProd,     setModalProd]     = useState(false);
   const [modalGastosDia,   setModalGastosDia]   = useState(false);
   const [modalTransferDia, setModalTransferDia] = useState(false);
+  const [modalUtilidadDia, setModalUtilidadDia] = useState(false);
   const [fecha,     setFecha]     = useState('');
   const [isMobile,  setIsMobile]  = useState(false);
 
@@ -228,6 +274,17 @@ export default function DashboardAdmin(p) {
   const utilColor    = p.utilidadMes >= 0 ? '#2dce6b' : '#ef4444';
   const utilDiaColor = p.utilidadDia >= 0 ? '#2dce6b' : '#ef4444';
   const totalGastosCat = Object.values(p.gastosCat || {}).reduce((s, v) => s + v, 0);
+
+  // Utilidad por medio de pago = ingresos del medio - gastos del mismo medio (hoy)
+  const transferHoy = p.transferenciaEntidadHoy || {};
+  const gastosMedio = p.gastosMedioPagoHoy || {};
+  const utilidadPorMedio = {
+    EFECTIVO:    (p.efectivoHoy || 0)         - (gastosMedio.EFECTIVO || 0),
+    NEQUI:       (transferHoy.NEQUI || 0)     - (gastosMedio.NEQUI || 0),
+    DAVIPLATA:   (transferHoy.DAVIPLATA || 0) - (gastosMedio.DAVIPLATA || 0),
+    BANCOLOMBIA: (transferHoy.BANCOLOMBIA || 0) - (gastosMedio.BANCOLOMBIA || 0),
+    ADDI:        (p.addiHoy || 0)             - (gastosMedio.ADDI || 0),
+  };
 
   // Datos de ranking
   const topVendedor  = (p.top3Vendedores  || [])[0] || null;
@@ -533,9 +590,10 @@ export default function DashboardAdmin(p) {
           <span className="kpi-day-arrow">Ver →</span>
         </div>
 
-        {/* Utilidad del día */}
+        {/* Utilidad del día — clickeable */}
         <div
-          className="kpi-day-card"
+          className="kpi-day-card clickable"
+          onClick={() => setModalUtilidadDia(true)}
           style={{
             background: p.utilidadDia >= 0 ? 'rgba(45,206,107,0.06)' : 'rgba(239,68,68,0.06)',
             borderColor: p.utilidadDia >= 0 ? 'rgba(45,206,107,0.22)' : 'rgba(239,68,68,0.22)',
@@ -549,6 +607,7 @@ export default function DashboardAdmin(p) {
             <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Utilidad del día</div>
             <div style={{ fontSize:'1.35rem', fontWeight:900, color:utilDiaColor, fontFamily:"'Rajdhani',sans-serif", lineHeight:1.2 }}>{fmt(p.utilidadDia)}</div>
           </div>
+          <span className="kpi-day-arrow">Ver →</span>
         </div>
       </div>
 
@@ -782,6 +841,26 @@ export default function DashboardAdmin(p) {
                 <div style={{ fontSize:'1.75rem', fontWeight:900, color:'#60a5fa', fontFamily:"'Rajdhani',sans-serif" }}>{fmtFull(p.transferenciaHoy)}</div>
               </div>
               <DesgloseMedios entries={desgloseEntries(p.transferenciaEntidadHoy)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL Utilidad del día ════════════════════════════════════════ */}
+      {modalUtilidadDia && (
+        <div className="modal-overlay" onClick={() => setModalUtilidadDia(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">🏛️ Utilidad del día</h2>
+              <button onClick={() => setModalUtilidadDia(false)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'1.2rem', color:'var(--text-muted)' }}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ textAlign:'center', marginBottom:'0.25rem' }}>
+                <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Utilidad total hoy</div>
+                <div style={{ fontSize:'1.75rem', fontWeight:900, color:utilDiaColor, fontFamily:"'Rajdhani',sans-serif" }}>{fmtFull(p.utilidadDia)}</div>
+                <div style={{ fontSize:'0.68rem', color:'var(--text-muted)', marginTop:'2px' }}>Ingresos − gastos por cada medio de pago</div>
+              </div>
+              <DesgloseUtilidad utilidadPorMedio={utilidadPorMedio} />
             </div>
           </div>
         </div>
