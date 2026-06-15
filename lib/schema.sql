@@ -21,7 +21,10 @@ CREATE TABLE IF NOT EXISTS productos (
   precio         NUMERIC(12,2) NOT NULL DEFAULT 0,
   cantidad       INTEGER NOT NULL DEFAULT 0,
   fecha_registro TEXT    NOT NULL,
-  estado         TEXT    NOT NULL DEFAULT 'ACTIVO'
+  estado         TEXT    NOT NULL DEFAULT 'ACTIVO',
+  precio_compra  NUMERIC(12,2), -- valor de compra unitario (registrado/actualizado desde Inversiones)
+  tipo           TEXT,          -- ROPA | CALZADO | GENERAL (registrado desde Inversiones)
+  sub_tipo       TEXT           -- NINO | ADULTO (si tipo es ROPA/CALZADO)
 );
 
 CREATE TABLE IF NOT EXISTS ventas (
@@ -79,4 +82,30 @@ CREATE TABLE IF NOT EXISTS recomendaciones (
   vendedor  TEXT NOT NULL,
   contenido TEXT NOT NULL,
   estado    TEXT NOT NULL DEFAULT 'ACTIVA'
+);
+
+-- Historial de inversiones (compras de mercancía) registradas desde Gastos → categoría "Inversión".
+-- Cada inversión crea/actualiza producto(s) en `productos`, registra un gasto en `gastos`
+-- (categoria='INVERSION', referenciado por gasto_id) y guarda aquí el detalle completo
+-- (tallas/cantidades, productos creados o actualizados) para trazabilidad. Solo ADMINISTRADOR.
+CREATE TABLE IF NOT EXISTS inversiones (
+  id                  INTEGER PRIMARY KEY,
+  codigo              TEXT UNIQUE NOT NULL,
+  fecha               TEXT NOT NULL,
+  hora                TEXT NOT NULL,
+  usuario_id          INTEGER NOT NULL,
+  usuario_nombre      TEXT NOT NULL,
+  nombre_base         TEXT NOT NULL,
+  tipo                TEXT NOT NULL,    -- ROPA | CALZADO | GENERAL
+  sub_tipo            TEXT,             -- NINO | ADULTO
+  valor_compra        NUMERIC(12,2) NOT NULL, -- valor de compra unitario
+  valor_venta         NUMERIC(12,2) NOT NULL, -- valor de venta unitario
+  total_unidades      INTEGER NOT NULL,
+  total_invertido     NUMERIC(12,2) NOT NULL,
+  detalle             JSONB NOT NULL,   -- { tallas | cantidad, productos: [{codigo,nombre,talla,esNuevo,cantidadAportada,cantidadTotal}] }
+  metodo_pago         TEXT NOT NULL DEFAULT 'EFECTIVO', -- EFECTIVO | TRANSFERENCIA | MIXTO
+  medio_pago          TEXT,                             -- BANCOLOMBIA | DAVIPLATA | NEQUI (si aplica)
+  valor_efectivo      NUMERIC(12,2),                    -- usado en método MIXTO
+  valor_transferencia NUMERIC(12,2),                    -- usado en método MIXTO
+  gasto_id            INTEGER           -- FK lógica hacia gastos.id (registro categoria='INVERSION')
 );

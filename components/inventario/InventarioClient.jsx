@@ -5,15 +5,14 @@ import PageHeader    from '@/components/ui/PageHeader';
 import Alert        from '@/components/ui/Alert';
 import ProductModal from '@/components/inventario/ProductModal';
 import StockAlerts  from '@/components/inventario/StockAlerts';
+import { TipoSelector, SubTipoSelector } from '@/components/inventario/TipoSubtipoSelector';
+import CantidadSelector from '@/components/inventario/CantidadSelector';
+import TallasSelector   from '@/components/inventario/TallasSelector';
 import { fmtCompact, fmtLargo } from '@/lib/formatCompact';
 import { tokenizar, scoreCoincidencia } from '@/lib/fuzzySearch';
+import { tallasPara } from '@/lib/inventarioConstants';
 
 const fmt = fmtLargo;
-
-const TALLAS_ROPA      = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const TALLAS_ROPA_NINO = Array.from({ length: 15 }, (_, i) => String(i * 2)); // 0,2,4,...,28
-const TALLAS_NINO      = Array.from({ length: 17 }, (_, i) => String(i));
-const TALLAS_ADULTO    = Array.from({ length: 19 }, (_, i) => String(i + 24));
 
 const COLORES = [
   'Blanco', 'Negro', 'Gris', 'Plata',
@@ -424,11 +423,7 @@ export default function InventarioClient({
 function FormAgregarProducto({ form, setAgregar, setTalla }) {
   const { nombre, tipo, subTipo, precio, estado, tallas, colores, cantidad } = form;
 
-  let tallasActuales = [];
-  if      (tipo === 'ROPA'    && subTipo === 'ADULTO') tallasActuales = TALLAS_ROPA;
-  else if (tipo === 'ROPA'    && subTipo === 'NINO')   tallasActuales = TALLAS_ROPA_NINO;
-  else if (tipo === 'CALZADO' && subTipo === 'NINO')   tallasActuales = TALLAS_NINO;
-  else if (tipo === 'CALZADO' && subTipo === 'ADULTO') tallasActuales = TALLAS_ADULTO;
+  const tallasActuales = tallasPara(tipo, subTipo);
 
   const totalUds     = Object.values(tallas).reduce((s, c) => s + c, 0);
   const tallasFilled = Object.values(tallas).filter(c => c > 0).length;
@@ -459,278 +454,20 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
       />
 
       {/* Tipo */}
-      <div className="form-group">
-        <label className="form-label">Tipo de producto *</label>
-        <div style={{ display:'flex', gap:'0.75rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
-          {[['ROPA','👕 Ropa'], ['CALZADO','👟 Calzado'], ['GENERAL','📦 General']].map(([val, lbl]) => (
-            <label key={val} style={{
-              display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer',
-              padding:'0.55rem 1.1rem', borderRadius:'var(--radius-sm)',
-              border:`1.5px solid ${tipo === val ? 'var(--primary)' : 'var(--border-color)'}`,
-              background: tipo === val ? 'var(--primary-subtle)' : 'var(--bg-card)',
-              color:      tipo === val ? 'var(--primary)'        : 'var(--text-secondary)',
-              fontWeight: tipo === val ? 700 : 400,
-              transition:'var(--transition)', flex:'1 1 100px',
-            }}>
-              <input
-                type="radio" name="tipo" value={val} checked={tipo === val}
-                onChange={() => setAgregar('tipo', val)}
-                style={{ accentColor:'var(--primary)', cursor:'pointer' }}
-              />
-              {lbl}
-            </label>
-          ))}
-        </div>
-      </div>
+      <TipoSelector tipo={tipo} onChange={val => setAgregar('tipo', val)} />
 
-      {/* Sub-tipo ropa */}
-      {tipo === 'ROPA' && (
-        <div className="form-group">
-          <label className="form-label">¿Para quién es? *</label>
-          <div style={{ display:'flex', gap:'0.75rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
-            {[['NINO','👦 Niño'], ['ADULTO','👨 Adulto']].map(([val, lbl]) => (
-              <label key={val} style={{
-                display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer',
-                padding:'0.55rem 1.1rem', borderRadius:'var(--radius-sm)',
-                border:`1.5px solid ${subTipo === val ? 'var(--primary)' : 'var(--border-color)'}`,
-                background: subTipo === val ? 'var(--primary-subtle)' : 'var(--bg-card)',
-                color:      subTipo === val ? 'var(--primary)'        : 'var(--text-secondary)',
-                fontWeight: subTipo === val ? 700 : 400,
-                transition:'var(--transition)', flex:'1 1 110px',
-              }}>
-                <input
-                  type="radio" name="subTipoRopa" value={val} checked={subTipo === val}
-                  onChange={() => setAgregar('subTipo', val)}
-                  style={{ accentColor:'var(--primary)', cursor:'pointer' }}
-                />
-                {lbl}
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sub-tipo calzado */}
-      {tipo === 'CALZADO' && (
-        <div className="form-group">
-          <label className="form-label">¿Para quién es? *</label>
-          <div style={{ display:'flex', gap:'0.75rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
-            {[['NINO','👦 Niño'], ['ADULTO','👨 Adulto']].map(([val, lbl]) => (
-              <label key={val} style={{
-                display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer',
-                padding:'0.55rem 1.1rem', borderRadius:'var(--radius-sm)',
-                border:`1.5px solid ${subTipo === val ? 'var(--primary)' : 'var(--border-color)'}`,
-                background: subTipo === val ? 'var(--primary-subtle)' : 'var(--bg-card)',
-                color:      subTipo === val ? 'var(--primary)'        : 'var(--text-secondary)',
-                fontWeight: subTipo === val ? 700 : 400,
-                transition:'var(--transition)', flex:'1 1 110px',
-              }}>
-                <input
-                  type="radio" name="subTipoCalzado" value={val} checked={subTipo === val}
-                  onChange={() => setAgregar('subTipo', val)}
-                  style={{ accentColor:'var(--primary)', cursor:'pointer' }}
-                />
-                {lbl}
-              </label>
-            ))}
-          </div>
-        </div>
+      {/* Sub-tipo (ropa / calzado) */}
+      {(tipo === 'ROPA' || tipo === 'CALZADO') && (
+        <SubTipoSelector subTipo={subTipo} onChange={val => setAgregar('subTipo', val)} />
       )}
 
       {/* Cantidad única para Producto General */}
       {tipo === 'GENERAL' && (
-        <div className="form-group">
-          <label className="form-label">Cantidad Disponible *</label>
-          <div style={{
-            borderRadius:'var(--radius)',
-            border:'1px solid var(--border-color)',
-            overflow:'hidden',
-          }}>
-            <div style={{
-              display:'flex', alignItems:'center', gap:'0.75rem',
-              padding:'0.65rem 1rem',
-              background: cantGeneral > 0
-                ? 'linear-gradient(90deg,rgba(45,206,107,0.09) 0%,var(--bg-card) 100%)'
-                : 'var(--bg-card)',
-              borderLeft:`3px solid ${cantGeneral > 0 ? 'var(--primary)' : 'transparent'}`,
-              transition:'background 0.2s, border-color 0.2s',
-            }}>
-              <button
-                type="button"
-                onClick={() => setAgregar('cantidad', cantGeneral - 1)}
-                disabled={cantGeneral === 0}
-                style={{
-                  width:30, height:30, borderRadius:'50%', padding:0,
-                  border:'1px solid var(--border-color)',
-                  background: cantGeneral === 0 ? 'transparent' : 'var(--bg-input)',
-                  color: cantGeneral === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
-                  cursor: cantGeneral === 0 ? 'not-allowed' : 'pointer',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:'1rem', transition:'var(--transition)',
-                }}
-              >−</button>
-
-              <input
-                type="number" min="0"
-                value={cantGeneral}
-                onChange={e => setAgregar('cantidad', Math.max(0, parseInt(e.target.value) || 0))}
-                style={{
-                  flex:1, textAlign:'center', padding:'0.28rem 0.2rem',
-                  background:'var(--bg-input)',
-                  border:`1px solid ${cantGeneral > 0 ? 'var(--primary)' : 'var(--border-color)'}`,
-                  borderRadius:'var(--radius-xs)',
-                  color:'var(--text-primary)',
-                  fontSize:'0.88rem', fontWeight:600,
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setAgregar('cantidad', cantGeneral + 1)}
-                style={{
-                  width:30, height:30, borderRadius:'50%', padding:0,
-                  border:'1.5px solid var(--primary)',
-                  background:'var(--primary-subtle)',
-                  color:'var(--primary)',
-                  cursor:'pointer',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:'1rem', transition:'var(--transition)',
-                }}
-              >+</button>
-            </div>
-          </div>
-
-          {cantGeneral > 0 && (
-            <div style={{
-              marginTop:'0.4rem', padding:'0.45rem 0.75rem',
-              background:'var(--primary-subtle)',
-              borderRadius:'var(--radius-sm)',
-              border:'1px solid var(--primary-glow)',
-              display:'flex', justifyContent:'space-between',
-              fontSize:'0.78rem',
-            }}>
-              <span style={{ color:'var(--text-secondary)' }}>Cantidad a registrar</span>
-              <span style={{ color:'var(--primary)', fontWeight:700 }}>{cantGeneral} unidades</span>
-            </div>
-          )}
-        </div>
+        <CantidadSelector value={cantGeneral} onChange={v => setAgregar('cantidad', v)} />
       )}
 
       {/* Grid de tallas */}
-      {tallasActuales.length > 0 && (
-        <div className="form-group">
-          <label className="form-label" style={{ display:'block', marginBottom:'0.4rem' }}>
-            Cantidades por talla
-          </label>
-          <div style={{
-            borderRadius:'var(--radius)',
-            border:'1px solid var(--border-color)',
-            overflow:'hidden',
-            maxHeight: tallasActuales.length > 10 ? 320 : 'none',
-            overflowY: tallasActuales.length > 10 ? 'auto' : 'visible',
-          }}>
-            {tallasActuales.map((talla, i) => {
-              const cantidad = tallas[talla] || 0;
-              const activa   = cantidad > 0;
-              return (
-                <div key={talla} style={{
-                  display:'flex', alignItems:'center', gap:'0.75rem',
-                  padding:'0.55rem 1rem',
-                  background: activa
-                    ? 'linear-gradient(90deg,rgba(45,206,107,0.09) 0%,var(--bg-card) 100%)'
-                    : i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-mid)',
-                  borderBottom: i < tallasActuales.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                  borderLeft: `3px solid ${activa ? 'var(--primary)' : 'transparent'}`,
-                  transition:'background 0.2s, border-color 0.2s',
-                }}>
-                  {/* Talla */}
-                  <span style={{
-                    minWidth:36, fontWeight:700, textAlign:'center',
-                    color: activa ? 'var(--primary)' : 'var(--text-secondary)',
-                    fontSize:'0.9rem', fontFamily:"'Rajdhani',sans-serif", letterSpacing:1,
-                  }}>
-                    {talla}
-                  </span>
-
-                  {/* Controles */}
-                  <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => setTalla(talla, cantidad - 1)}
-                      disabled={cantidad === 0}
-                      style={{
-                        width:30, height:30, borderRadius:'50%', padding:0,
-                        border:'1px solid var(--border-color)',
-                        background: cantidad === 0 ? 'transparent' : 'var(--bg-input)',
-                        color: cantidad === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
-                        cursor: cantidad === 0 ? 'not-allowed' : 'pointer',
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        fontSize:'1rem', transition:'var(--transition)',
-                      }}
-                    >−</button>
-
-                    <input
-                      type="number" min="0"
-                      value={cantidad}
-                      onChange={e => setTalla(talla, e.target.value)}
-                      style={{
-                        width:52, textAlign:'center', padding:'0.28rem 0.2rem',
-                        background:'var(--bg-input)',
-                        border:`1px solid ${activa ? 'var(--primary)' : 'var(--border-color)'}`,
-                        borderRadius:'var(--radius-xs)',
-                        color:'var(--text-primary)',
-                        fontSize:'0.88rem', fontWeight:600,
-                      }}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => setTalla(talla, cantidad + 1)}
-                      style={{
-                        width:30, height:30, borderRadius:'50%', padding:0,
-                        border:'1.5px solid var(--primary)',
-                        background:'var(--primary-subtle)',
-                        color:'var(--primary)',
-                        cursor:'pointer',
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        fontSize:'1rem', transition:'var(--transition)',
-                      }}
-                    >+</button>
-                  </div>
-
-                  {/* Etiqueta cantidad */}
-                  <span style={{
-                    minWidth:44, textAlign:'right',
-                    fontSize:'0.72rem', fontWeight:600,
-                    color: activa ? 'var(--primary)' : 'var(--text-muted)',
-                  }}>
-                    {activa ? `${cantidad} ud.` : '—'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Resumen tallas */}
-          {tallasFilled > 0 && (
-            <div style={{
-              marginTop:'0.4rem', padding:'0.45rem 0.75rem',
-              background:'var(--primary-subtle)',
-              borderRadius:'var(--radius-sm)',
-              border:'1px solid var(--primary-glow)',
-              display:'flex', justifyContent:'space-between',
-              fontSize:'0.78rem',
-            }}>
-              <span style={{ color:'var(--text-secondary)' }}>
-                {tallasFilled} talla{tallasFilled > 1 ? 's' : ''} seleccionada{tallasFilled > 1 ? 's' : ''}
-              </span>
-              <span style={{ color:'var(--primary)', fontWeight:700 }}>
-                {totalUds} unidades totales
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      <TallasSelector tallas={tallas} tallasActuales={tallasActuales} setTalla={setTalla} />
 
       {/* Resumen de variantes a crear (ropa/calzado con colores) */}
       {tallasFilled > 0 && colores.length > 0 && (

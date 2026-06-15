@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import PageHeader    from '@/components/ui/PageHeader';
 import Alert        from '@/components/ui/Alert';
 import ProductModal from '@/components/inventario/ProductModal';
+import InversionForm, { INVERSION_VACIO, validarInversion } from '@/components/gastos/InversionForm';
+import { METODOS_PAGO, MEDIOS_PAGO, ToggleButtons, validarPago, formatOrigen } from '@/components/gastos/PagoSelector';
 import { fechaHoyColombia } from '@/lib/fechaColombia';
 
 const fmt = v => `$${Number(v || 0).toLocaleString('es-CO', { minimumFractionDigits:0, maximumFractionDigits:0 })}`;
@@ -16,46 +18,9 @@ const CATS = [
   { key:'GASTO_DIARIO', label:'Gasto diario', icono:'📅', cls:'c-diario' },
 ];
 
-const METODOS_PAGO = [['EFECTIVO','💵 Efectivo'],['TRANSFERENCIA','🏦 Transferencia'],['MIXTO','💳 Mixto']];
-const MEDIOS_PAGO  = [['BANCOLOMBIA','Bancolombia'],['DAVIPLATA','Daviplata'],['NEQUI','Nequi']];
-const MEDIO_LABEL  = { BANCOLOMBIA:'Bancolombia', DAVIPLATA:'Daviplata', NEQUI:'Nequi' };
-
 const VACIO = { nombre:'', valor:'', fecha:HOY(), categoria:'SERVICIO', descripcion:'', metodoPago:'EFECTIVO', medioPago:'', valorEfectivo:'' };
 
-function formatOrigen(g) {
-  if (g.metodoPago === 'TRANSFERENCIA') {
-    return `Transferencia - ${MEDIO_LABEL[g.medioPago] || g.medioPago || ''}`;
-  }
-  if (g.metodoPago === 'MIXTO') {
-    return `Mixto (Efectivo: ${fmt(g.valorEfectivo)} / ${MEDIO_LABEL[g.medioPago] || g.medioPago || ''}: ${fmt(g.valorTransferencia)})`;
-  }
-  return 'Efectivo';
-}
-
-function validarPago(form) {
-  if (form.metodoPago === 'TRANSFERENCIA' && !form.medioPago) {
-    return 'Debe seleccionar el medio de transferencia (Bancolombia, Daviplata o Nequi).';
-  }
-  if (form.metodoPago === 'MIXTO') {
-    const total = parseFloat(form.valor) || 0;
-    const ef    = parseFloat(form.valorEfectivo);
-    if (form.valorEfectivo === '' || isNaN(ef)) {
-      return 'Debe ingresar el valor en efectivo.';
-    }
-    if (ef < 0) {
-      return 'El valor en efectivo no puede ser negativo.';
-    }
-    if (ef > total) {
-      return 'El valor en efectivo no puede superar el total del gasto.';
-    }
-    if (!form.medioPago) {
-      return 'Debe seleccionar el medio de transferencia para el saldo restante.';
-    }
-  }
-  return null;
-}
-
-export default function GastosClient({ lista, categoriaActual, totalMes, gastosPorCat, esAdmin }) {
+export default function GastosClient({ lista, categoriaActual, totalMes, gastosPorCat, esAdmin, productosExistentes = [] }) {
   const router    = useRouter();
   const [, start] = useTransition();
 
@@ -68,7 +33,15 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
   const [confirmId,    setConfirmId]    = useState(null);
   const [form,         setForm]         = useState(VACIO);
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  const esInversion = esAdmin && form.categoria === 'INVERSION';
+
+  function set(k, v) {
+    if (k === 'categoria') {
+      if (v === 'INVERSION') { setForm({ ...INVERSION_VACIO, categoria: 'INVERSION' }); return; }
+      if (form.categoria === 'INVERSION' && v !== 'INVERSION') { setForm({ ...VACIO, categoria: v }); return; }
+    }
+    setForm(f => ({ ...f, [k]: v }));
+  }
 
   function abrirEditar(g) {
     setForm({
@@ -113,6 +86,29 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
     finally  { setCargando(false); }
   }
 
+  async function enviarInversion() {
+    const error = validarInversion(form);
+    if (error) { setMsgTipo('error'); setMsg(error); return; }
+    setCargando(true);
+    try {
+      const res  = await fetch('/api/inversiones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setMsgTipo('error'); setMsg(data.error || 'Error.');
+      } else {
+        setMsgTipo('success');
+        setMsg(`Inversión ${data.codigo} registrada: ${data.productos.length} producto(s) actualizados en inventario — total invertido ${fmt(data.totalInvertido)}.`);
+        cerrarAgregar();
+        start(() => router.refresh());
+      }
+    } catch { setMsgTipo('error'); setMsg('Error de conexión.'); }
+    finally  { setCargando(false); }
+  }
+
   return (
     <div className="content-area">
       <PageHeader title="Gastos Empresariales" subtitle="Control de egresos y categorías">
@@ -126,7 +122,7 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
 
       {/* Categorías KPI */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'1rem', marginBottom:'1.5rem' }}>
-        {CATS.map(c => (
+        {CATS.filter(c => esAdmin || c.key !== 'INVERSION').map(c => (
           <a key={c.key}
             href={categoriaActual === c.key ? '/main/gastos' : `/main/gastos?categoria=${c.key}`}
             className={`panel ${categoriaActual === c.key ? 'active' : ''}`}
@@ -205,21 +201,23 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
         </div>
       </div>
 
-      {/* ── Modal Registrar Gasto ──────────────────────────────── */}
+      {/* ── Modal Registrar Gasto / Inversión ──────────────────── */}
       <ProductModal
         isOpen={modalAgregar}
         onClose={cerrarAgregar}
-        title="Registrar gasto"
+        title={esInversion ? 'Registrar inversión' : 'Registrar gasto'}
         footer={
           <>
             <button className="btn btn-secondary" onClick={cerrarAgregar}>Cancelar</button>
-            <button className="btn btn-primary" disabled={cargando} onClick={() => enviar('agregar')}>
-              {cargando ? 'Guardando...' : 'Registrar'}
+            <button className="btn btn-primary" disabled={cargando} onClick={() => esInversion ? enviarInversion() : enviar('agregar')}>
+              {cargando ? 'Guardando...' : (esInversion ? 'Registrar inversión' : 'Registrar')}
             </button>
           </>
         }
       >
-        <FormGasto form={form} set={set} />
+        {esInversion
+          ? <InversionForm form={form} set={set} productosExistentes={productosExistentes} />
+          : <FormGasto form={form} set={set} esAdmin={esAdmin} />}
       </ProductModal>
 
       {/* ── Modal Editar Gasto ─────────────────────────────────── */}
@@ -236,7 +234,7 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
           </>
         }
       >
-        <FormGasto form={form} set={set} />
+        <FormGasto form={form} set={set} esAdmin={esAdmin} />
       </ProductModal>
 
       {/* ── Confirmar Eliminar ─────────────────────────────────── */}
@@ -271,23 +269,7 @@ export default function GastosClient({ lista, categoriaActual, totalMes, gastosP
   );
 }
 
-function ToggleButtons({ options, value, onChange }) {
-  return (
-    <div style={{ display:'flex', gap:6 }}>
-      {options.map(([val, lbl]) => (
-        <div key={val} onClick={() => onChange(val)} style={{
-          flex:1, padding:'7px 4px', textAlign:'center', fontSize:12, fontWeight:600,
-          borderRadius:'var(--radius-sm)', cursor:'pointer',
-          border:`1px solid ${value === val ? 'var(--primary)' : 'var(--border-color)'}`,
-          background: value === val ? 'var(--primary)' : 'transparent',
-          color:      value === val ? '#000' : 'var(--text-muted)',
-        }}>{lbl}</div>
-      ))}
-    </div>
-  );
-}
-
-function FormGasto({ form, set }) {
+function FormGasto({ form, set, esAdmin }) {
   const total         = parseFloat(form.valor) || 0;
   const efectivo      = parseFloat(form.valorEfectivo) || 0;
   const transferencia = Math.max(0, total - efectivo);
@@ -316,7 +298,7 @@ function FormGasto({ form, set }) {
           <label className="form-label">Categoría *</label>
           <select className="form-control" value={form.categoria} onChange={e => set('categoria', e.target.value)}>
             <option value="SERVICIO">Servicio</option>
-            <option value="INVERSION">Inversión</option>
+            {esAdmin && <option value="INVERSION">Inversión</option>}
             <option value="COMPRA">Compra</option>
             <option value="GASTO_DIARIO">Gasto Diario</option>
           </select>
