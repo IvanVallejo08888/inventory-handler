@@ -48,22 +48,35 @@ function InicialAvatar({ nombre, size = 36 }) {
 
 /* ── Gráfica barras — ventas por día ──────────────────────────────────── */
 function GraficaVentasDia({ datos }) {
-  const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  const entries = Object.entries(datos || {}).sort((a, b) => a[0].localeCompare(b[0]));
-  if (!entries.length) {
-    return <p style={{ color:'var(--text-muted)', textAlign:'center', padding:'1.5rem 0', fontSize:'0.82rem' }}>Sin ventas esta semana</p>;
-  }
-  const max = Math.max(...entries.map(([, v]) => v), 1);
+  const ETIQUETAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  // Calcular lunes de la semana actual en hora de Colombia (UTC-5 = 17:00 UTC = mediodía Bogotá)
+  const hoyCol = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  const noon = new Date(`${hoyCol}T17:00:00Z`);
+  const dia = noon.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+  const diasDesdeLunes = dia === 0 ? 6 : dia - 1;
+  // Generar las 7 fechas de la semana (Lun→Dom)
+  const semana = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(noon.getTime() + (i - diasDesdeLunes) * 86400000);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
+  });
+  const values = semana.map(f => (datos || {})[f] || 0);
+  const max = Math.max(...values, 1);
   return (
     <div style={{ display:'flex', alignItems:'flex-end', gap:'8px', height:'110px', padding:'0 4px' }}>
-      {entries.map(([fecha, total]) => {
-        const d   = new Date(fecha + 'T12:00:00');
-        const pct = Math.max((total / max) * 75, 4);
+      {semana.map((fecha, i) => {
+        const total = values[i];
+        const pct = total > 0 ? Math.max((total / max) * 75, 4) : 2;
         return (
           <div key={fecha} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'4px' }}>
-            <div style={{ fontSize:'0.58rem', color:'var(--text-secondary)', whiteSpace:'nowrap', overflow:'hidden', maxWidth:'100%', textOverflow:'ellipsis', textAlign:'center' }}>{fmt(total)}</div>
-            <div style={{ width:'100%', height:`${pct}px`, background:'linear-gradient(to top,#1aaa52,#2dce6b)', borderRadius:'4px 4px 0 0' }} />
-            <div style={{ fontSize:'0.63rem', color:'var(--text-muted)' }}>{DIAS[d.getDay()]}</div>
+            <div style={{ fontSize:'0.58rem', color:'var(--text-secondary)', whiteSpace:'nowrap', overflow:'hidden', maxWidth:'100%', textOverflow:'ellipsis', textAlign:'center' }}>
+              {total > 0 ? fmt(total) : ''}
+            </div>
+            <div style={{
+              width:'100%', height:`${pct}px`,
+              background: total > 0 ? 'linear-gradient(to top,#1aaa52,#2dce6b)' : 'rgba(255,255,255,0.06)',
+              borderRadius:'4px 4px 0 0',
+            }} />
+            <div style={{ fontSize:'0.63rem', color:'var(--text-muted)' }}>{ETIQUETAS[i]}</div>
           </div>
         );
       })}
