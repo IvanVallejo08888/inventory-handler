@@ -6,7 +6,7 @@ import {
   resumenVendedoresDia, totalGeneralVendedoresDia, vendedoresSinVentas,
   totalEfectivoHoy, totalTransferenciaHoy,
 } from '@/lib/fileManagerVentas';
-import { listarProductos } from '@/lib/fileManagerProductos';
+import { listarProductosConVariantes } from '@/lib/fileManagerProductos';
 import { leerUsuarios }    from '@/lib/fileManager';
 import { fechaHoyColombia } from '@/lib/fechaColombia';
 
@@ -20,7 +20,7 @@ export async function GET(request) {
   const admin   = esAdmin(sesion);
 
   if (accion === 'productos') {
-    const lista = (await listarProductos()).filter(p => p.estado === 'ACTIVO');
+    const lista = (await listarProductosConVariantes()).filter(p => p.estado === 'ACTIVO');
     return NextResponse.json(lista);
   }
 

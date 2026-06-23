@@ -24,7 +24,21 @@ CREATE TABLE IF NOT EXISTS productos (
   estado         TEXT    NOT NULL DEFAULT 'ACTIVO',
   precio_compra  NUMERIC(12,2), -- valor de compra unitario (registrado/actualizado desde Inversiones)
   tipo           TEXT,          -- ROPA | CALZADO | GENERAL (registrado desde Inversiones)
-  sub_tipo       TEXT           -- NINO | ADULTO (si tipo es ROPA/CALZADO)
+  sub_tipo       TEXT,          -- NINO | ADULTO (si tipo es ROPA/CALZADO)
+  merged_into    INTEGER        -- si no es null, este producto fue fusionado dentro de productos.id = merged_into (estado='FUSIONADO')
+);
+
+-- Variantes por talla de un producto base (productos.id). cantidad/precio_compra de "productos"
+-- se mantienen como caché: cantidad = SUM(product_variants.cantidad), precio_compra = primera variante.
+CREATE TABLE IF NOT EXISTS product_variants (
+  id                      SERIAL PRIMARY KEY,
+  product_id              INTEGER NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
+  talla                   TEXT NOT NULL,
+  cantidad                INTEGER NOT NULL DEFAULT 0,
+  precio_compra_unitario  NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (product_id, talla)
 );
 
 CREATE TABLE IF NOT EXISTS ventas (
@@ -58,7 +72,8 @@ CREATE TABLE IF NOT EXISTS detalles_ventas (
   cantidad         INTEGER NOT NULL,
   precio_unitario  NUMERIC(12,2) NOT NULL,
   descuento_unidad NUMERIC(12,2) NOT NULL DEFAULT 0,
-  subtotal         NUMERIC(12,2) NOT NULL
+  subtotal         NUMERIC(12,2) NOT NULL,
+  talla            TEXT -- talla de la variante vendida (si el producto tiene variantes); null si no aplica
 );
 
 CREATE TABLE IF NOT EXISTS gastos (

@@ -189,9 +189,9 @@ function sheet(wb, nombre, headers, filas, tipo, config={}) {
 
 async function dInventario() {
   const p  = await listarProductos();
-  const hs = ['ID','Código','Nombre','Precio','Cantidad','Fecha Registro','Estado','Valor Total'];
-  const rs = p.map(x=>[x.id,x.codigo,x.nombre,+fmt2(x.precio),x.cantidad,x.fechaRegistro,x.estado,+fmt2(x.precio*x.cantidad)]);
-  rs.push(['','','','','','','TOTAL:',+fmt2(p.reduce((s,x)=>s+x.precio*x.cantidad,0))]);
+  const hs = ['ID','Código','Nombre','Precio','Precio Compra (Unit.)','Cantidad','Fecha Registro','Estado','Valor Total'];
+  const rs = p.map(x=>[x.id,x.codigo,x.nombre,+fmt2(x.precio),+fmt2(x.precioCompra||0),x.cantidad,x.fechaRegistro,x.estado,+fmt2(x.precio*x.cantidad)]);
+  rs.push(['','','','','','','','TOTAL:',+fmt2(p.reduce((s,x)=>s+x.precio*x.cantidad,0))]);
   return { hs, rs, total:p.length, valor:+fmt2(p.reduce((s,x)=>s+x.precio*x.cantidad,0)) };
 }
 

@@ -2,8 +2,11 @@
 
 // Grid de tallas con botones (-) / (+) por cantidad — extraído de InventarioClient
 // para reutilizarlo en el formulario de Inversión (Gastos).
-export default function TallasSelector({ tallas, tallasActuales, setTalla }) {
+// `precios`/`setPrecio` son opcionales: si se pasan, se muestra un input de
+// "precio de compra" por talla junto a la cantidad (usado en Inventario).
+export default function TallasSelector({ tallas, tallasActuales, setTalla, precios, setPrecio }) {
   if (!tallasActuales.length) return null;
+  const mostrarPrecioCompra = typeof setPrecio === 'function';
 
   const totalUds     = tallasActuales.reduce((s, t) => s + (tallas[t] || 0), 0);
   const tallasFilled = tallasActuales.filter(t => (tallas[t] || 0) > 0).length;
@@ -97,6 +100,28 @@ export default function TallasSelector({ tallas, tallasActuales, setTalla }) {
               }}>
                 {activa ? `${cantidad} ud.` : '—'}
               </span>
+
+              {/* Precio de compra por talla (opcional) */}
+              {mostrarPrecioCompra && (
+                <div style={{ display:'flex', alignItems:'center', gap:'0.3rem', minWidth:96 }}>
+                  <span style={{ fontSize:'0.68rem', color:'var(--text-muted)' }}>$</span>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={precios?.[talla] ?? ''}
+                    onChange={e => setPrecio(talla, e.target.value)}
+                    placeholder="Compra"
+                    title={`Precio de compra unitario — talla ${talla}`}
+                    style={{
+                      width:78, textAlign:'center', padding:'0.28rem 0.2rem',
+                      background:'var(--bg-input)',
+                      border:'1px solid var(--border-color)',
+                      borderRadius:'var(--radius-xs)',
+                      color:'var(--text-primary)',
+                      fontSize:'0.8rem',
+                    }}
+                  />
+                </div>
+              )}
             </div>
           );
         })}

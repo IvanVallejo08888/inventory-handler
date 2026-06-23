@@ -51,6 +51,7 @@ export default function VentasClient({ productos, sesion }) {
   const [transferProvider,      setTransferProvider]      = useState(null);
   const [mixedTransferProvider, setMixedTransferProvider]  = useState(null);
   const [modalOpen,   setModalOpen]   = useState(false);
+  const [tallaModal,  setTallaModal]  = useState(null); // producto con variantes seleccionado
   const [cargando,    setCargando]    = useState(false);
   const [msg,         setMsg]         = useState(null);
   // Mobile / pagination
@@ -107,8 +108,11 @@ export default function VentasClient({ productos, sesion }) {
   }
 
   // Carrito
+  function claveCarrito(codigo, talla) { return talla ? `${codigo}__${talla}` : codigo; }
+
   function toggleProducto(p) {
     if (p.cantidad === 0) { toast('Sin stock disponible', 'err'); return; }
+    if (p.variantes?.length) { setTallaModal(p); return; }
     setCarrito(c => {
       const ex = c[p.codigo];
       if (ex) {
@@ -117,7 +121,18 @@ export default function VentasClient({ productos, sesion }) {
         return { ...c, [p.codigo]: { ...ex, cantidad: ex.cantidad + 1 } };
       }
       toast(`${p.nombre} agregado ✓`, 'ok');
-      return { ...c, [p.codigo]: { nombre: p.nombre, precio: p.precio, cantidad: 1, stock: p.cantidad } };
+      return { ...c, [p.codigo]: { nombre: p.nombre, precio: p.precio, cantidad: 1, stock: p.cantidad, codigo: p.codigo, talla: null } };
+    });
+  }
+
+  function agregarTalla(p, talla, stockTalla, disponible) {
+    if (disponible <= 0) { toast('Stock bajo de esta talla', 'err'); return; }
+    const key = claveCarrito(p.codigo, talla);
+    setCarrito(c => {
+      const ex = c[key];
+      const nuevaCantidad = (ex?.cantidad || 0) + 1;
+      toast(`${p.nombre} (Talla ${talla}): ${nuevaCantidad} ud.`, ex ? 'inf' : 'ok');
+      return { ...c, [key]: { nombre: p.nombre, precio: p.precio, cantidad: nuevaCantidad, stock: stockTalla, codigo: p.codigo, talla } };
     });
   }
 
@@ -191,8 +206,9 @@ export default function VentasClient({ productos, sesion }) {
       toast('Selecciona el medio de la transferencia en el pago mixto', 'err'); return;
     }
     const detalles = keys.map(cod => ({
-      productoCodigo: cod, productoNombre: carrito[cod].nombre,
+      productoCodigo: carrito[cod].codigo, productoNombre: carrito[cod].nombre,
       cantidad: carrito[cod].cantidad, precioUnitario: carrito[cod].precio, descuentoUnidad: 0,
+      talla: carrito[cod].talla || null,
     }));
     setCargando(true);
     try {
@@ -265,7 +281,9 @@ export default function VentasClient({ productos, sesion }) {
             return (
               <div key={cod} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 10px', border:'1px solid var(--border-color)', borderRadius:'var(--radius-sm)', marginBottom:7, background:'var(--bg-input)' }}>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:13, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{it.nombre}</div>
+                  <div style={{ fontWeight:700, fontSize:13, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    {it.nombre}{it.talla && <span style={{ color:'var(--primary)' }}> · Talla {it.talla}</span>}
+                  </div>
                   <div style={{ fontSize:11, color:'var(--text-muted)' }}>${fmt(it.precio)} c/u</div>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:4 }}>
@@ -585,7 +603,9 @@ export default function VentasClient({ productos, sesion }) {
             overflowY: isMobile ? 'visible' : 'auto',
           }}>
             {productosAMostrar.map(p => {
-              const enCarrito = !!carrito[p.codigo];
+              const enCarrito = p.variantes?.length
+                ? Object.keys(carrito).some(k => carrito[k].codigo === p.codigo)
+                : !!carrito[p.codigo];
               const sinStock  = p.cantidad === 0;
               return (
                 <div key={p.codigo} onClick={() => toggleProducto(p)} style={{
@@ -687,6 +707,55 @@ export default function VentasClient({ productos, sesion }) {
         </div>
       )}
 
+      {/* Modal selección de talla */}
+      {tallaModal && (
+        <div onClick={() => setTallaModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2100, padding:16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:'var(--radius-lg)', padding:24, width:'100%', maxWidth:420, maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 60px rgba(0,0,0,.8)' }}>
+            <div style={{ fontSize:16, fontWeight:800, marginBottom:4, color:'var(--text-primary)' }}>¿Qué talla deseas llevar?</div>
+            <p style={{ color:'var(--text-secondary)', fontSize:12, marginBottom:14 }}>{tallaModal.nombre}</p>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+              {tallaModal.variantes.filter(v => v.cantidad > 0).map(v => {
+                const enCarrito  = carrito[claveCarrito(tallaModal.codigo, v.talla)]?.cantidad || 0;
+                const disponible = v.cantidad - enCarrito;
+                const agotada    = disponible <= 0;
+                return (
+                  <div key={v.talla} style={{
+                    display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'10px 14px', border:'1px solid var(--border-color)', borderRadius:'var(--radius-sm)',
+                    background: agotada ? 'rgba(239,68,68,0.05)' : 'var(--bg-input)',
+                    opacity: agotada ? 0.6 : 1,
+                  }}>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:14, color:'var(--text-primary)' }}>Talla {v.talla}</div>
+                      <div style={{ fontSize:11, color: agotada ? '#ef4444' : 'var(--text-muted)' }}>
+                        {agotada ? 'Stock agotado' : `Disponibles: ${disponible}`}
+                        {enCarrito > 0 && !agotada && ` · ${enCarrito} en carrito`}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => agregarTalla(tallaModal, v.talla, v.cantidad, disponible)}
+                      disabled={agotada}
+                      style={{
+                        width:36, height:36, borderRadius:'50%', border:'1.5px solid var(--primary)',
+                        background: agotada ? 'transparent' : 'var(--primary-subtle)',
+                        color: agotada ? 'var(--text-muted)' : 'var(--primary)',
+                        cursor: agotada ? 'not-allowed' : 'pointer',
+                        fontSize:18, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
+                      }}
+                    >+</button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button className="btn btn-primary" style={{ width:'100%' }} onClick={() => setTallaModal(null)}>
+              LISTO
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal confirmación */}
       {modalOpen && (
         <div onClick={() => setModalOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
@@ -706,7 +775,9 @@ export default function VentasClient({ productos, sesion }) {
                     const it = carrito[cod];
                     return (
                       <tr key={cod}>
-                        <td style={{ padding:'9px 10px', borderBottom:'1px solid rgba(45,206,107,.04)', color:'var(--text-primary)' }}>{it.nombre}</td>
+                        <td style={{ padding:'9px 10px', borderBottom:'1px solid rgba(45,206,107,.04)', color:'var(--text-primary)' }}>
+                          {it.nombre}{it.talla ? ` (Talla ${it.talla})` : ''}
+                        </td>
                         <td style={{ padding:'9px 10px', borderBottom:'1px solid rgba(45,206,107,.04)', textAlign:'right' }}>{it.cantidad}</td>
                         <td style={{ padding:'9px 10px', borderBottom:'1px solid rgba(45,206,107,.04)', textAlign:'right' }}>${fmt(it.precio)}</td>
                         <td style={{ padding:'9px 10px', borderBottom:'1px solid rgba(45,206,107,.04)', textAlign:'right', fontWeight:700, color:'var(--primary)' }}>${fmt(it.precio * it.cantidad)}</td>

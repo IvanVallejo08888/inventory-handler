@@ -27,8 +27,14 @@ const COLORES = [
   'Multicolor',
 ];
 
-const FORM_EDIT_VACIO    = { nombre:'', precio:'', cantidad:'', estado:'ACTIVO' };
-const FORM_AGREGAR_VACIO = { nombre:'', tipo:'', subTipo:'', precio:'', estado:'ACTIVO', tallas:{}, colores:[], cantidad: 0 };
+const FORM_EDIT_VACIO    = {
+  nombre:'', precio:'', cantidad:'', estado:'ACTIVO',
+  tieneVariantes:false, tipo:'', subTipo:'', tallas:{}, preciosCompra:{},
+};
+const FORM_AGREGAR_VACIO = {
+  nombre:'', tipo:'', subTipo:'', precio:'', precioCompra:'', estado:'ACTIVO',
+  tallas:{}, preciosCompra:{}, colores:[], cantidad: 0,
+};
 
 const PAGE_SIZE = 20;
 
@@ -102,8 +108,8 @@ export default function InventarioClient({
   function setAgregar(k, v) {
     setFormAgregar(f => {
       const next = { ...f, [k]: v };
-      if (k === 'tipo')    { next.subTipo = ''; next.tallas = {}; next.cantidad = 0; }
-      if (k === 'subTipo') { next.tallas = {}; }
+      if (k === 'tipo')    { next.subTipo = ''; next.tallas = {}; next.preciosCompra = {}; next.cantidad = 0; }
+      if (k === 'subTipo') { next.tallas = {}; next.preciosCompra = {}; }
       return next;
     });
   }
@@ -113,9 +119,37 @@ export default function InventarioClient({
     setFormAgregar(f => ({ ...f, tallas: { ...f.tallas, [talla]: val } }));
   }
 
-  function abrirEditar(p) {
-    setFormState({ nombre: p.nombre, precio: p.precio, cantidad: p.cantidad, estado: p.estado, id: p.id });
+  function setPrecioCompraTalla(talla, raw) {
+    const val = Math.max(0, parseFloat(raw) || 0);
+    setFormAgregar(f => ({ ...f, preciosCompra: { ...f.preciosCompra, [talla]: val } }));
+  }
+
+  function setTallaEditar(talla, raw) {
+    const val = Math.max(0, parseInt(raw) || 0);
+    setFormState(f => ({ ...f, tallas: { ...f.tallas, [talla]: val } }));
+  }
+
+  function setPrecioCompraTallaEditar(talla, raw) {
+    const val = Math.max(0, parseFloat(raw) || 0);
+    setFormState(f => ({ ...f, preciosCompra: { ...f.preciosCompra, [talla]: val } }));
+  }
+
+  async function abrirEditar(p) {
+    setFormState({
+      nombre: p.nombre, precio: p.precio, cantidad: p.cantidad, estado: p.estado, id: p.id,
+      tieneVariantes: false, tipo: p.tipo || '', subTipo: p.subTipo || '', tallas: {}, preciosCompra: {},
+    });
     setModalEditar(true);
+
+    try {
+      const res  = await fetch(`/api/productos?id=${p.id}`);
+      const data = await res.json();
+      if (res.ok && data.variantes?.length) {
+        const tallas = {}, preciosCompra = {};
+        for (const v of data.variantes) { tallas[v.talla] = v.cantidad; preciosCompra[v.talla] = v.precioCompra; }
+        setFormState(f => ({ ...f, tieneVariantes: true, tallas, preciosCompra }));
+      }
+    } catch { /* si falla la carga de variantes, se edita como producto simple */ }
   }
 
   function cerrarAgregar() {
@@ -132,9 +166,21 @@ export default function InventarioClient({
   async function enviar(accion) {
     setCargando(true);
     try {
-      const body = accion === 'eliminar'
-        ? { accion, id: confirmId }
-        : { accion, ...form };
+      let body;
+      if (accion === 'eliminar') {
+        body = { accion, id: confirmId };
+      } else if (form.tieneVariantes) {
+        const tallasActuales = Array.from(new Set([
+          ...tallasPara(form.tipo, form.subTipo),
+          ...Object.keys(form.tallas),
+        ]));
+        const variantes = tallasActuales.map(talla => ({
+          talla, cantidad: form.tallas[talla] || 0, precioCompra: form.preciosCompra[talla] || 0,
+        }));
+        body = { accion, id: form.id, nombre: form.nombre, precio: form.precio, estado: form.estado, variantes };
+      } else {
+        body = { accion, ...form };
+      }
       const res  = await fetch('/api/productos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,10 +200,12 @@ export default function InventarioClient({
     finally  { setCargando(false); }
   }
 
-  // Agregar con tallas y colores — genera una variante por cada combinación color×talla
-  // Para Producto General genera una variante por color (o una sola si no hay colores)
+  // Agregar producto — para ROPA/CALZADO genera UN solo producto con sus variantes por
+  // talla (en vez de un producto por talla). Si hay colores, se crea un producto por color
+  // (con sus propias variantes de talla dentro). Producto General sin tallas sigue creando
+  // un único producto simple (o uno por color, si aplica).
   async function enviarTallas() {
-    const { nombre, tipo, subTipo, precio, estado, tallas, colores, cantidad } = formAgregar;
+    const { nombre, tipo, subTipo, precio, precioCompra, estado, tallas, preciosCompra, colores, cantidad } = formAgregar;
 
     if (!nombre.trim())                    { setMsgTipo('error'); setMsg('El nombre del producto es obligatorio.'); return; }
     if (!tipo)                             { setMsgTipo('error'); setMsg('Selecciona el tipo de producto.'); return; }
@@ -166,37 +214,29 @@ export default function InventarioClient({
     if (!precio || parseFloat(precio) < 0) { setMsgTipo('error'); setMsg('Ingresa un precio válido.'); return; }
 
     const nombreBase = nombre.trim().toUpperCase();
-    const seen = new Set();
-    const variantes = [];
+    const defaultCompra = parseFloat(precioCompra) || 0;
+    const pedidos = []; // [{ nombre, variantes? , cantidad? }]
 
     if (tipo === 'GENERAL') {
       const cant = Math.max(0, parseInt(cantidad) || 0);
       if (cant <= 0) { setMsgTipo('error'); setMsg('La cantidad disponible debe ser mayor a 0.'); return; }
       if (colores.length > 0) {
-        for (const color of colores) {
-          const nombreFinal = `${nombreBase} COLOR ${color.toUpperCase()}`;
-          if (!seen.has(nombreFinal)) { seen.add(nombreFinal); variantes.push({ nombre: nombreFinal, cantidad: cant }); }
-        }
+        for (const color of colores) pedidos.push({ nombre: `${nombreBase} COLOR ${color.toUpperCase()}`, cantidad: cant });
       } else {
-        variantes.push({ nombre: nombreBase, cantidad: cant });
+        pedidos.push({ nombre: nombreBase, cantidad: cant });
       }
     } else {
       const tallasConCantidad = Object.entries(tallas).filter(([, c]) => c > 0);
       if (!tallasConCantidad.length) {
         setMsgTipo('error'); setMsg('Agrega al menos una talla con cantidad mayor a 0.'); return;
       }
+      const variantes = tallasConCantidad.map(([talla, cant]) => ({
+        talla, cantidad: cant, precioCompra: preciosCompra[talla] || defaultCompra,
+      }));
       if (colores.length > 0) {
-        for (const color of colores) {
-          for (const [talla, cant] of tallasConCantidad) {
-            const nombreFinal = `${nombreBase} COLOR ${color.toUpperCase()} TALLA ${talla}`;
-            if (!seen.has(nombreFinal)) { seen.add(nombreFinal); variantes.push({ nombre: nombreFinal, cantidad: cant }); }
-          }
-        }
+        for (const color of colores) pedidos.push({ nombre: `${nombreBase} COLOR ${color.toUpperCase()}`, variantes });
       } else {
-        for (const [talla, cant] of tallasConCantidad) {
-          const nombreFinal = `${nombreBase} TALLA ${talla}`;
-          if (!seen.has(nombreFinal)) { seen.add(nombreFinal); variantes.push({ nombre: nombreFinal, cantidad: cant }); }
-        }
+        pedidos.push({ nombre: nombreBase, variantes });
       }
     }
 
@@ -204,14 +244,17 @@ export default function InventarioClient({
     try {
       let exitosos = 0;
       const errores = [];
-      for (const variante of variantes) {
+      for (const pedido of pedidos) {
         const res  = await fetch('/api/productos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accion:'agregar', nombre: variante.nombre, precio:parseFloat(precio), cantidad: variante.cantidad, estado }),
+          body: JSON.stringify({
+            accion:'agregar', nombre: pedido.nombre, precio: parseFloat(precio), estado, tipo, subTipo,
+            ...(pedido.variantes ? { variantes: pedido.variantes } : { cantidad: pedido.cantidad }),
+          }),
         });
         const data = await res.json();
-        if (!res.ok || data.error) errores.push(`${variante.nombre}: ${data.error}`);
+        if (!res.ok || data.error) errores.push(`${pedido.nombre}: ${data.error}`);
         else exitosos++;
       }
       if (exitosos > 0) {
@@ -298,7 +341,7 @@ export default function InventarioClient({
           <table className="area17-table">
             <thead>
               <tr>
-                <th>Código</th><th>Nombre</th><th>Precio</th>
+                <th>Código</th><th>Nombre</th><th>Precio</th><th>Precio compra (unit.)</th>
                 <th>Cantidad</th><th>Fecha registro</th><th>Estado</th><th>Acciones</th>
               </tr>
             </thead>
@@ -308,6 +351,7 @@ export default function InventarioClient({
                   <td><span className="codigo-badge">{p.codigo}</span></td>
                   <td>{p.nombre}</td>
                   <td style={{ color:'var(--primary)' }}>{fmt(p.precio)}</td>
+                  <td style={{ color:'var(--text-secondary)' }}>{fmt(p.precioCompra || 0)}</td>
                   <td>
                     <span style={{ color: p.cantidad <= 5 ? '#f59e0b' : 'inherit', fontWeight: p.cantidad <= 5 ? 700 : 400 }}>
                       {p.cantidad} {p.cantidad <= 5 && '⚠️'}
@@ -327,7 +371,7 @@ export default function InventarioClient({
               ))}
               {!resultados.length && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign:'center', color:'var(--text-muted)', padding:'2rem' }}>
+                  <td colSpan={8} style={{ textAlign:'center', color:'var(--text-muted)', padding:'2rem' }}>
                     {sinResultadosPorBusqueda ? 'No se encontraron productos coincidentes' : 'No se encontraron productos'}
                   </td>
                 </tr>
@@ -363,7 +407,7 @@ export default function InventarioClient({
           </>
         }
       >
-        <FormAgregarProducto form={formAgregar} setAgregar={setAgregar} setTalla={setTalla} />
+        <FormAgregarProducto form={formAgregar} setAgregar={setAgregar} setTalla={setTalla} setPrecioCompraTalla={setPrecioCompraTalla} />
       </ProductModal>
 
       {/* ── Modal Editar ───────────────────────────────────────── */}
@@ -380,7 +424,7 @@ export default function InventarioClient({
           </>
         }
       >
-        <FormProducto form={form} set={set} />
+        <FormProducto form={form} set={set} setTallaEditar={setTallaEditar} setPrecioCompraTallaEditar={setPrecioCompraTallaEditar} />
       </ProductModal>
 
       {/* ── Confirmar Eliminar ─────────────────────────────────── */}
@@ -420,8 +464,8 @@ export default function InventarioClient({
 }
 
 /* ── Formulario de agregar con tallas ──────────────────────────────────── */
-function FormAgregarProducto({ form, setAgregar, setTalla }) {
-  const { nombre, tipo, subTipo, precio, estado, tallas, colores, cantidad } = form;
+function FormAgregarProducto({ form, setAgregar, setTalla, setPrecioCompraTalla }) {
+  const { nombre, tipo, subTipo, precio, precioCompra, estado, tallas, preciosCompra, colores, cantidad } = form;
 
   const tallasActuales = tallasPara(tipo, subTipo);
 
@@ -466,8 +510,23 @@ function FormAgregarProducto({ form, setAgregar, setTalla }) {
         <CantidadSelector value={cantGeneral} onChange={v => setAgregar('cantidad', v)} />
       )}
 
+      {/* Valor de compra por unidad — precarga el precio de compra de cada talla */}
+      {(tipo === 'ROPA' || tipo === 'CALZADO') && (
+        <div className="form-group">
+          <label className="form-label">Valor de compra por unidad</label>
+          <input
+            className="form-control" type="number" min="0" step="0.01"
+            value={precioCompra} onChange={e => setAgregar('precioCompra', e.target.value)}
+            placeholder="0.00 (se puede ajustar por talla abajo)"
+          />
+        </div>
+      )}
+
       {/* Grid de tallas */}
-      <TallasSelector tallas={tallas} tallasActuales={tallasActuales} setTalla={setTalla} />
+      <TallasSelector
+        tallas={tallas} tallasActuales={tallasActuales} setTalla={setTalla}
+        precios={preciosCompra} setPrecio={setPrecioCompraTalla}
+      />
 
       {/* Resumen de variantes a crear (ropa/calzado con colores) */}
       {tallasFilled > 0 && colores.length > 0 && (
@@ -702,8 +761,14 @@ function ColorSelector({ coloresSeleccionados, onChange }) {
   );
 }
 
-/* ── Formulario de edición — sin cambios ───────────────────────────────── */
-function FormProducto({ form, set }) {
+/* ── Formulario de edición — productos con variantes muestran tallas con su cantidad
+   y precio de compra; productos simples muestran el campo de cantidad directo ────── */
+function FormProducto({ form, set, setTallaEditar, setPrecioCompraTallaEditar }) {
+  const tallasActuales = form.tieneVariantes
+    ? Array.from(new Set([...tallasPara(form.tipo, form.subTipo), ...Object.keys(form.tallas)]))
+    : [];
+  const totalUds = Object.values(form.tallas).reduce((s, c) => s + (c || 0), 0);
+
   return (
     <>
       <div className="form-group">
@@ -724,15 +789,36 @@ function FormProducto({ form, set }) {
             placeholder="0.00"
           />
         </div>
-        <div className="form-group">
-          <label className="form-label">Cantidad *</label>
-          <input
-            className="form-control" type="number" min="0"
-            value={form.cantidad} onChange={e => set('cantidad', e.target.value)}
-            placeholder="0"
-          />
-        </div>
+        {!form.tieneVariantes && (
+          <div className="form-group">
+            <label className="form-label">Cantidad *</label>
+            <input
+              className="form-control" type="number" min="0"
+              value={form.cantidad} onChange={e => set('cantidad', e.target.value)}
+              placeholder="0"
+            />
+          </div>
+        )}
       </div>
+
+      {form.tieneVariantes && (
+        <>
+          <TallasSelector
+            tallas={form.tallas} tallasActuales={tallasActuales} setTalla={setTallaEditar}
+            precios={form.preciosCompra} setPrecio={setPrecioCompraTallaEditar}
+          />
+          <div style={{
+            marginBottom:'0.75rem', padding:'0.5rem 0.85rem',
+            background:'rgba(45,206,107,0.06)', borderRadius:'var(--radius-sm)',
+            border:'1px solid var(--primary-glow)', fontSize:'0.78rem',
+            display:'flex', justifyContent:'space-between',
+          }}>
+            <span style={{ color:'var(--text-secondary)' }}>Cantidad total (suma de tallas)</span>
+            <span style={{ color:'var(--primary)', fontWeight:700 }}>{totalUds} unidades</span>
+          </div>
+        </>
+      )}
+
       <div className="form-group">
         <label className="form-label">Estado</label>
         <select className="form-control" value={form.estado} onChange={e => set('estado', e.target.value)}>
