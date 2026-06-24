@@ -1,4 +1,4 @@
-const CACHE_NAME = 'area17-v2';
+const CACHE_NAME = 'area17-v3';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
