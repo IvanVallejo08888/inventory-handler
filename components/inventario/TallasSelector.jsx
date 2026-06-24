@@ -19,7 +19,7 @@ export default function TallasSelector({ tallas, tallasActuales, setTalla, preci
       <div style={{
         borderRadius:'var(--radius)',
         border:'1px solid var(--border-color)',
-        overflow:'hidden',
+        overflowX:'hidden',
         maxHeight: tallasActuales.length > 10 ? 320 : 'none',
         overflowY: tallasActuales.length > 10 ? 'auto' : 'visible',
       }}>
@@ -28,7 +28,7 @@ export default function TallasSelector({ tallas, tallasActuales, setTalla, preci
           const activa   = cantidad > 0;
           return (
             <div key={talla} style={{
-              display:'flex', alignItems:'center', gap:'0.75rem',
+              display:'flex', flexWrap:'wrap', alignItems:'center', gap:'0.5rem', rowGap:'0.4rem',
               padding:'0.55rem 1rem',
               background: activa
                 ? 'linear-gradient(90deg,rgba(45,206,107,0.09) 0%,var(--bg-card) 100%)'
@@ -47,7 +47,7 @@ export default function TallasSelector({ tallas, tallasActuales, setTalla, preci
               </span>
 
               {/* Controles */}
-              <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
                 <button
                   type="button"
                   onClick={() => setTalla(talla, cantidad - 1)}
@@ -59,7 +59,7 @@ export default function TallasSelector({ tallas, tallasActuales, setTalla, preci
                     color: cantidad === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
                     cursor: cantidad === 0 ? 'not-allowed' : 'pointer',
                     display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:'1rem', transition:'var(--transition)',
+                    fontSize:'1rem', transition:'var(--transition)', flexShrink:0,
                   }}
                 >−</button>
 
@@ -87,14 +87,14 @@ export default function TallasSelector({ tallas, tallasActuales, setTalla, preci
                     color:'var(--primary)',
                     cursor:'pointer',
                     display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:'1rem', transition:'var(--transition)',
+                    fontSize:'1rem', transition:'var(--transition)', flexShrink:0,
                   }}
                 >+</button>
               </div>
 
               {/* Etiqueta cantidad */}
               <span style={{
-                minWidth:44, textAlign:'right',
+                minWidth:44, textAlign:'right', marginLeft:'auto',
                 fontSize:'0.72rem', fontWeight:600,
                 color: activa ? 'var(--primary)' : 'var(--text-muted)',
               }}>
@@ -103,7 +103,7 @@ export default function TallasSelector({ tallas, tallasActuales, setTalla, preci
 
               {/* Precio de compra por talla (opcional) */}
               {mostrarPrecioCompra && (
-                <div style={{ display:'flex', alignItems:'center', gap:'0.3rem', minWidth:96 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}>
                   <span style={{ fontSize:'0.68rem', color:'var(--text-muted)' }}>$</span>
                   <input
                     type="number" min="0" step="0.01"
